@@ -276,6 +276,18 @@ for iii in 1:limit_filelist
             end
         end
     end
+    # Replace zeros with missings
+    replace!(merger_collection_STARS["M_MM"]         , 0. => missing)
+    replace!(merger_collection_STARS["M2_MM"]        , 0. => missing)
+    replace!(merger_collection_STARS["J_MMorbital"]  , 0. => missing)
+    replace!(merger_collection_STARS["J_SUMorbital"] , 0. => missing)
+    replace!(merger_collection_STARS["M_MERGERS"]    , 0. => missing)
+    replace!(merger_collection_STARS["M_MISSED"]     , 0. => missing)
+    replace!(merger_collection_STARS["M_CONSIDERED"] , 0. => missing)
+    replace!(merger_collection_STARS["M2_MERGERS"]   , 0. => missing)
+    replace!(merger_collection_STARS["M2_MISSED"]    , 0. => missing)
+    replace!(merger_collection_STARS["M2_CONSIDERED"], 0. => missing)
+
     # Sanity check
     #println("$(size(merger_collection_STARS["SNAP"]))")
     #println("$(size(merger_collection_STARS["δJ_main"]))")
