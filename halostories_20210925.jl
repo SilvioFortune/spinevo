@@ -141,7 +141,7 @@ for iii in 1:limit_filelist
     #println("$(length(merger_indices)) $(sum(n_mergers)) ")
     
     
-    # Fill the dictionary
+    # Fill the STARS dictionary
 
     merger_collection_STARS = Dict(
             "SNAP"          => missings(Int64   , 0),
@@ -288,16 +288,309 @@ for iii in 1:limit_filelist
     replace!(merger_collection_STARS["M2_MISSED"]    , 0. => missing)
     replace!(merger_collection_STARS["M2_CONSIDERED"], 0. => missing)
 
-    # Sanity check
-    #println("$(size(merger_collection_STARS["SNAP"]))")
-    #println("$(size(merger_collection_STARS["δJ_main"]))")
-    #println("$(size(merger_collection_STARS["J_SUMorbital"]))")
-    #println("$(size(merger_collection_STARS["M2_MERGERS"]))")
-    #@show merger_collection_STARS["M2_MISSED"]
+
+    # Fill the DM dictionary
+
+    merger_collection_DM = Dict(
+            "SNAP"          => missings(Int64   , 0),
+            "ID_ISUB"       => missings(Int64   , 0),
+            "I_SUB"         => missings(Int64   , 0),
+            "N_MERGERS"     => missings(Int64   , 0),
+            "ID_Mfelix"     => missings(Float64 , 0),
+            "ID_M2"         => missings(Float64 , 0),
+            "REDSHIFT"      => missings(Float64 , 0),
+            "LOOKBACKTIME"  => missings(Float64 , 0),
+            "M_MM"          => missings(Float64 , 0),
+            "M2_MM"         => missings(Float64 , 0),
+            "δM_felix"      => missings(Float64 , 0), 
+            "δM2_felix"     => missings(Float64 , 0), 
+            "δM_fromJ"      => missings(Float64 , 0), 
+            "M_felix"       => missings(Float64 , 0), 
+            "M2_felix"      => missings(Float64 , 0), 
+            "M_fromJ"       => missings(Float64 , 0), 
+            "ϕ_flip"        => missings(Float64 , 0), 
+            "M_MERGERS"     => missings(Float64 , 0),
+            "M_MISSED"      => missings(Float64 , 0), 
+            "M_CONSIDERED"  => missings(Float64 , 0),  
+            "M2_MERGERS"    => missings(Float64 , 0),
+            "M2_MISSED"     => missings(Float64 , 0), 
+            "M2_CONSIDERED" => missings(Float64 , 0),  
+            "BVAL"          => missings(Float64 , 0), 
+            "δBVAL"         => missings(Float64 , 0), 
+            "J_MMorbital"   => missings(Float64 , 3, 0), 
+            "J_SUMorbital"  => missings(Float64 , 3, 0), 
+            "δJ_main"       => missings(Float64 , 3, 0), 
+            "J_main"        => missings(Float64 , 3, 0), 
+            "j_main"        => missings(Float64 , 3, 0), 
+            "δj_main"       => missings(Float64 , 3, 0))
+
+    for i in 1:length(fp_indices)
+        #print("$i ")
+        #flush(stdout)
+
+        # Basic Info
+        head    = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][fp_indices[i]]))/sub_$(@sprintf("%03i", halo_story["SNAP"][fp_indices[i]]))")
+        merger_collection_DM["LOOKBACKTIME"] = vcat( merger_collection_DM["LOOKBACKTIME"], ustrip(lookback_time(cosmology(h=head.h0, OmegaM=head.omega_0), head.z)) )
+        merger_collection_DM["SNAP"]         = vcat( merger_collection_DM["SNAP"], halo_story["SNAP"][fp_indices[i]] )
+        merger_collection_DM["ID_ISUB"]      = vcat( merger_collection_DM["ID_ISUB"], halo_story["I_SUB"][1] )
+        merger_collection_DM["ID_Mfelix"]    = vcat( merger_collection_DM["ID_Mfelix"], id_mfelix )
+        merger_collection_DM["ID_M2"]        = vcat( merger_collection_DM["ID_M2"], id_m2 )
+        merger_collection_DM["REDSHIFT"]     = vcat( merger_collection_DM["REDSHIFT"], halo_story["REDSHIFT"][fp_indices[i]] )
+        merger_collection_DM["I_SUB"]        = vcat( merger_collection_DM["I_SUB"], halo_story["I_SUB"][fp_indices[i]] )
+        merger_collection_DM["M_felix"]      = vcat( merger_collection_DM["M_felix"], convert_units_physical_mass(halo_story["M_DM"][fp_indices[i]], head) )
+        merger_collection_DM["M2_felix"]     = vcat( merger_collection_DM["M2_felix"], convert_units_physical_mass(halo_story["M_DM_2"][fp_indices[i]], head) )
+        if !ismissing(halo_story["j_DM"][1,fp_indices[i]]) && !ismissing(halo_story["j_DM"][2,fp_indices[i]]) && !ismissing(halo_story["j_DM"][3,fp_indices[i]])
+            merger_collection_DM["M_fromJ"]  = vcat( merger_collection_DM["M_fromJ"], norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["j_DM"][:,fp_indices[i]]) )
+        else
+            merger_collection_DM["M_fromJ"]  = vcat( merger_collection_DM["M_fromJ"], missing )
+        end
+        merger_collection_DM["BVAL"]         = vcat( merger_collection_DM["BVAL"], halo_story["BVAL"][fp_indices[i]] )
+        merger_collection_DM["J_main"]       = hcat( merger_collection_DM["J_main"], halo_story["J_DM"][:,fp_indices[i]] )
+        merger_collection_DM["j_main"]       = hcat( merger_collection_DM["j_main"], halo_story["j_DM"][:,fp_indices[i]] )
+        merger_collection_DM["N_MERGERS"]    = vcat( merger_collection_DM["N_MERGERS"], length(merger_indices[1+sum(n_mergers[1:i-1]):sum(n_mergers[1:i])]) )
+
+        # Transitional Data
+        if i == 1
+            merger_collection_DM["δJ_main"]          = hcat( merger_collection_DM["δJ_main"], missings(Float64, 3) )
+            merger_collection_DM["δj_main"]          = hcat( merger_collection_DM["δj_main"], missings(Float64, 3) )
+            merger_collection_DM["δBVAL"]            = vcat( merger_collection_DM["δBVAL"], missing )
+            merger_collection_DM["ϕ_flip"]           = vcat( merger_collection_DM["ϕ_flip"], missing )
+            merger_collection_DM["δM_felix"]         = vcat( merger_collection_DM["δM_felix"], missing )
+            merger_collection_DM["δM2_felix"]        = vcat( merger_collection_DM["δM2_felix"], missing )
+            merger_collection_DM["δM_fromJ"]         = vcat( merger_collection_DM["δM_fromJ"], missing )
+            merger_collection_DM["M_MM"]             = vcat( merger_collection_DM["M_MM"], missing )
+            merger_collection_DM["M2_MM"]            = vcat( merger_collection_DM["M2_MM"], missing )
+            merger_collection_DM["J_MMorbital"]      = hcat( merger_collection_DM["J_MMorbital"], missings(Float64, 3) )
+            merger_collection_DM["J_SUMorbital"]     = hcat( merger_collection_DM["J_SUMorbital"], missings(Float64, 3) )
+            merger_collection_DM["M_MERGERS"]        = vcat( merger_collection_DM["M_MERGERS"], missing )
+            merger_collection_DM["M_MISSED"]         = vcat( merger_collection_DM["M_MISSED"], missing )
+            merger_collection_DM["M_CONSIDERED"]     = vcat( merger_collection_DM["M_CONSIDERED"], missing )
+            merger_collection_DM["M2_MERGERS"]       = vcat( merger_collection_DM["M2_MERGERS"], missing )
+            merger_collection_DM["M2_MISSED"]        = vcat( merger_collection_DM["M2_MISSED"], missing )
+            merger_collection_DM["M2_CONSIDERED"]    = vcat( merger_collection_DM["M2_CONSIDERED"], missing )
+        else
+            merger_collection_DM["δJ_main"]  = hcat( merger_collection_DM["δJ_main"], halo_story["J_DM"][:,fp_indices[i]] .- halo_story["J_DM"][:,fp_indices[i-1]] )
+            merger_collection_DM["δj_main"]  = hcat( merger_collection_DM["δj_main"], halo_story["j_DM"][:,fp_indices[i]] .- halo_story["j_DM"][:,fp_indices[i-1]] )
+            merger_collection_DM["δBVAL"]    = vcat( merger_collection_DM["δBVAL"], halo_story["BVAL"][fp_indices[i]] - halo_story["BVAL"][fp_indices[i-1]] )
+            if !ismissing(halo_story["j_DM"][1,fp_indices[i]]) && !ismissing(halo_story["j_DM"][2,fp_indices[i]]) && !ismissing(halo_story["j_DM"][3,fp_indices[i]])
+                merger_collection_DM["ϕ_flip"]   = vcat( merger_collection_DM["ϕ_flip"], acosd( transpose(halo_story["J_DM"][:,fp_indices[i]]) * halo_story["J_DM"][:,fp_indices[i-1]] / norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["J_DM"][:,fp_indices[i-1]]) ) )
+                merger_collection_DM["δM_fromJ"] = vcat( merger_collection_DM["δM_fromJ"], (norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["j_DM"][:,fp_indices[i]])) - (norm(halo_story["J_DM"][:,fp_indices[i-1]]) / norm(halo_story["j_DM"][:,fp_indices[i-1]])) )
+            else
+                #println(halo_story["j_DM"][:,fp_indices[i]])
+                println("missing j_DM for $(storyfilelist[iii]) @ index $(fp_indices[i])")
+                merger_collection_DM["ϕ_flip"]   = vcat( merger_collection_DM["ϕ_flip"], missing )
+                merger_collection_DM["δM_fromJ"] = vcat( merger_collection_DM["δM_fromJ"], missing )
+            end
+            #println("\n$(halo_story["J_DM"][:,fp_indices[i]]) $(halo_story["J_DM"][:,fp_indices[i-1]])")
+            merger_collection_DM["δM_felix"] = vcat( merger_collection_DM["δM_felix"], convert_units_physical_mass(halo_story["M_DM"][fp_indices[i]], head) - convert_units_physical_mass(halo_story["M_DM"][fp_indices[i-1]], head) )
+            merger_collection_DM["δM2_felix"] = vcat( merger_collection_DM["δM2_felix"], convert_units_physical_mass(halo_story["M_DM_2"][fp_indices[i]], head) - convert_units_physical_mass(halo_story["M_DM_2"][fp_indices[i-1]], head) )
+            
+            # Merger Data
+            # Setup
+            merger_collection_DM["M_MM"]             = vcat( merger_collection_DM["M_MM"], 0 )
+            merger_collection_DM["M2_MM"]            = vcat( merger_collection_DM["M2_MM"], 0 )
+            merger_collection_DM["J_MMorbital"]      = hcat( merger_collection_DM["J_MMorbital"], zeros(3) )
+            merger_collection_DM["J_SUMorbital"]     = hcat( merger_collection_DM["J_SUMorbital"], zeros(3) )
+            merger_collection_DM["M_MERGERS"]        = vcat( merger_collection_DM["M_MERGERS"], 0 )
+            merger_collection_DM["M_MISSED"]         = vcat( merger_collection_DM["M_MISSED"], 0 )
+            merger_collection_DM["M_CONSIDERED"]     = vcat( merger_collection_DM["M_CONSIDERED"], 0 )
+            merger_collection_DM["M2_MERGERS"]       = vcat( merger_collection_DM["M2_MERGERS"], 0 )
+            merger_collection_DM["M2_MISSED"]        = vcat( merger_collection_DM["M2_MISSED"], 0 )
+            merger_collection_DM["M2_CONSIDERED"]    = vcat( merger_collection_DM["M2_CONSIDERED"], 0 )
+            # Actual check
+            for ii in merger_indices[1+sum(n_mergers[1:i-1]):sum(n_mergers[1:i])]
+                # Most Massive condition
+                head    = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][ii]))/sub_$(@sprintf("%03i", halo_story["SNAP"][ii]))")
+                if convert_units_physical_mass(halo_story["M_DM_2"][ii], head) > merger_collection_DM["M2_MM"][end]
+                    merger_collection_DM["M_MM"][end]            = convert_units_physical_mass(halo_story["M_DM"][ii], head)
+                    merger_collection_DM["M2_MM"][end]           = convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
+                    merger_collection_DM["J_MMorbital"][:,end]   = halo_story["J_orbital"][:,ii]
+                end
+                # Orbital Data
+                if !ismissing(halo_story["J_orbital"][1,ii]) || !ismissing(halo_story["J_orbital"][2,ii]) || !ismissing(halo_story["J_orbital"][3,ii])
+                    merger_collection_DM["J_SUMorbital"][:,end] .+= halo_story["J_orbital"][:,ii]
+                    merger_collection_DM["M_MERGERS"][end]       += convert_units_physical_mass(halo_story["M_DM"][ii], head)
+                    merger_collection_DM["M_CONSIDERED"][end]    += convert_units_physical_mass(halo_story["M_DM"][ii], head)
+                    merger_collection_DM["M2_MERGERS"][end]      += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
+                    merger_collection_DM["M2_CONSIDERED"][end]   += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
+                    #println(halo_story["J_orbital"][:,ii])
+                else
+                    #println("$ii")
+                    merger_collection_DM["M_MERGERS"][end]   += convert_units_physical_mass(halo_story["M_DM"][ii], head)
+                    merger_collection_DM["M_MISSED"][end]    += convert_units_physical_mass(halo_story["M_DM"][ii], head)
+                    merger_collection_DM["M2_MERGERS"][end]  += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
+                    merger_collection_DM["M2_MISSED"][end]   += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
+                end
+            end
+        end
+    end
+    # Replace zeros with missings
+    replace!(merger_collection_DM["M_MM"]         , 0. => missing)
+    replace!(merger_collection_DM["M2_MM"]        , 0. => missing)
+    replace!(merger_collection_DM["J_MMorbital"]  , 0. => missing)
+    replace!(merger_collection_DM["J_SUMorbital"] , 0. => missing)
+    replace!(merger_collection_DM["M_MERGERS"]    , 0. => missing)
+    replace!(merger_collection_DM["M_MISSED"]     , 0. => missing)
+    replace!(merger_collection_DM["M_CONSIDERED"] , 0. => missing)
+    replace!(merger_collection_DM["M2_MERGERS"]   , 0. => missing)
+    replace!(merger_collection_DM["M2_MISSED"]    , 0. => missing)
+    replace!(merger_collection_DM["M2_CONSIDERED"], 0. => missing)
+
+
+    # Fill the GAS dictionary
+
+    merger_collection_GAS = Dict(
+            "SNAP"          => missings(Int64   , 0),
+            "ID_ISUB"       => missings(Int64   , 0),
+            "I_SUB"         => missings(Int64   , 0),
+            "N_MERGERS"     => missings(Int64   , 0),
+            "ID_Mfelix"     => missings(Float64 , 0),
+            "ID_M2"         => missings(Float64 , 0),
+            "REDSHIFT"      => missings(Float64 , 0),
+            "LOOKBACKTIME"  => missings(Float64 , 0),
+            "M_MM"          => missings(Float64 , 0),
+            "M2_MM"         => missings(Float64 , 0),
+            "δM_felix"      => missings(Float64 , 0), 
+            "δM2_felix"     => missings(Float64 , 0), 
+            "δM_fromJ"      => missings(Float64 , 0), 
+            "M_felix"       => missings(Float64 , 0), 
+            "M2_felix"      => missings(Float64 , 0), 
+            "M_fromJ"       => missings(Float64 , 0), 
+            "ϕ_flip"        => missings(Float64 , 0), 
+            "M_MERGERS"     => missings(Float64 , 0),
+            "M_MISSED"      => missings(Float64 , 0), 
+            "M_CONSIDERED"  => missings(Float64 , 0),  
+            "M2_MERGERS"    => missings(Float64 , 0),
+            "M2_MISSED"     => missings(Float64 , 0), 
+            "M2_CONSIDERED" => missings(Float64 , 0),  
+            "BVAL"          => missings(Float64 , 0), 
+            "δBVAL"         => missings(Float64 , 0), 
+            "J_MMorbital"   => missings(Float64 , 3, 0), 
+            "J_SUMorbital"  => missings(Float64 , 3, 0), 
+            "δJ_main"       => missings(Float64 , 3, 0), 
+            "J_main"        => missings(Float64 , 3, 0), 
+            "j_main"        => missings(Float64 , 3, 0), 
+            "δj_main"       => missings(Float64 , 3, 0))
+
+    for i in 1:length(fp_indices)
+        #print("$i ")
+        #flush(stdout)
+
+        # Basic Info
+        head    = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][fp_indices[i]]))/sub_$(@sprintf("%03i", halo_story["SNAP"][fp_indices[i]]))")
+        merger_collection_GAS["LOOKBACKTIME"] = vcat( merger_collection_GAS["LOOKBACKTIME"], ustrip(lookback_time(cosmology(h=head.h0, OmegaM=head.omega_0), head.z)) )
+        merger_collection_GAS["SNAP"]         = vcat( merger_collection_GAS["SNAP"], halo_story["SNAP"][fp_indices[i]] )
+        merger_collection_GAS["ID_ISUB"]      = vcat( merger_collection_GAS["ID_ISUB"], halo_story["I_SUB"][1] )
+        merger_collection_GAS["ID_Mfelix"]    = vcat( merger_collection_GAS["ID_Mfelix"], id_mfelix )
+        merger_collection_GAS["ID_M2"]        = vcat( merger_collection_GAS["ID_M2"], id_m2 )
+        merger_collection_GAS["REDSHIFT"]     = vcat( merger_collection_GAS["REDSHIFT"], halo_story["REDSHIFT"][fp_indices[i]] )
+        merger_collection_GAS["I_SUB"]        = vcat( merger_collection_GAS["I_SUB"], halo_story["I_SUB"][fp_indices[i]] )
+        merger_collection_GAS["M_felix"]      = vcat( merger_collection_GAS["M_felix"], convert_units_physical_mass(halo_story["M_GAS"][fp_indices[i]], head) )
+        merger_collection_GAS["M2_felix"]     = vcat( merger_collection_GAS["M2_felix"], convert_units_physical_mass(halo_story["M_GAS_2"][fp_indices[i]], head) )
+        if !ismissing(halo_story["j_GAS"][1,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][2,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][3,fp_indices[i]])
+            merger_collection_GAS["M_fromJ"]  = vcat( merger_collection_GAS["M_fromJ"], norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["j_GAS"][:,fp_indices[i]]) )
+        else
+            merger_collection_GAS["M_fromJ"]  = vcat( merger_collection_GAS["M_fromJ"], missing )
+        end
+        merger_collection_GAS["BVAL"]         = vcat( merger_collection_GAS["BVAL"], halo_story["BVAL"][fp_indices[i]] )
+        merger_collection_GAS["J_main"]       = hcat( merger_collection_GAS["J_main"], halo_story["J_GAS"][:,fp_indices[i]] )
+        merger_collection_GAS["j_main"]       = hcat( merger_collection_GAS["j_main"], halo_story["j_GAS"][:,fp_indices[i]] )
+        merger_collection_GAS["N_MERGERS"]    = vcat( merger_collection_GAS["N_MERGERS"], length(merger_indices[1+sum(n_mergers[1:i-1]):sum(n_mergers[1:i])]) )
+
+        # Transitional Data
+        if i == 1
+            merger_collection_GAS["δJ_main"]          = hcat( merger_collection_GAS["δJ_main"], missings(Float64, 3) )
+            merger_collection_GAS["δj_main"]          = hcat( merger_collection_GAS["δj_main"], missings(Float64, 3) )
+            merger_collection_GAS["δBVAL"]            = vcat( merger_collection_GAS["δBVAL"], missing )
+            merger_collection_GAS["ϕ_flip"]           = vcat( merger_collection_GAS["ϕ_flip"], missing )
+            merger_collection_GAS["δM_felix"]         = vcat( merger_collection_GAS["δM_felix"], missing )
+            merger_collection_GAS["δM2_felix"]        = vcat( merger_collection_GAS["δM2_felix"], missing )
+            merger_collection_GAS["δM_fromJ"]         = vcat( merger_collection_GAS["δM_fromJ"], missing )
+            merger_collection_GAS["M_MM"]             = vcat( merger_collection_GAS["M_MM"], missing )
+            merger_collection_GAS["M2_MM"]            = vcat( merger_collection_GAS["M2_MM"], missing )
+            merger_collection_GAS["J_MMorbital"]      = hcat( merger_collection_GAS["J_MMorbital"], missings(Float64, 3) )
+            merger_collection_GAS["J_SUMorbital"]     = hcat( merger_collection_GAS["J_SUMorbital"], missings(Float64, 3) )
+            merger_collection_GAS["M_MERGERS"]        = vcat( merger_collection_GAS["M_MERGERS"], missing )
+            merger_collection_GAS["M_MISSED"]         = vcat( merger_collection_GAS["M_MISSED"], missing )
+            merger_collection_GAS["M_CONSIDERED"]     = vcat( merger_collection_GAS["M_CONSIDERED"], missing )
+            merger_collection_GAS["M2_MERGERS"]       = vcat( merger_collection_GAS["M2_MERGERS"], missing )
+            merger_collection_GAS["M2_MISSED"]        = vcat( merger_collection_GAS["M2_MISSED"], missing )
+            merger_collection_GAS["M2_CONSIDERED"]    = vcat( merger_collection_GAS["M2_CONSIDERED"], missing )
+        else
+            merger_collection_GAS["δJ_main"]  = hcat( merger_collection_GAS["δJ_main"], halo_story["J_GAS"][:,fp_indices[i]] .- halo_story["J_GAS"][:,fp_indices[i-1]] )
+            merger_collection_GAS["δj_main"]  = hcat( merger_collection_GAS["δj_main"], halo_story["j_GAS"][:,fp_indices[i]] .- halo_story["j_GAS"][:,fp_indices[i-1]] )
+            merger_collection_GAS["δBVAL"]    = vcat( merger_collection_GAS["δBVAL"], halo_story["BVAL"][fp_indices[i]] - halo_story["BVAL"][fp_indices[i-1]] )
+            if !ismissing(halo_story["j_GAS"][1,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][2,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][3,fp_indices[i]])
+                merger_collection_GAS["ϕ_flip"]   = vcat( merger_collection_GAS["ϕ_flip"], acosd( transpose(halo_story["J_GAS"][:,fp_indices[i]]) * halo_story["J_GAS"][:,fp_indices[i-1]] / norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["J_GAS"][:,fp_indices[i-1]]) ) )
+                merger_collection_GAS["δM_fromJ"] = vcat( merger_collection_GAS["δM_fromJ"], (norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["j_GAS"][:,fp_indices[i]])) - (norm(halo_story["J_GAS"][:,fp_indices[i-1]]) / norm(halo_story["j_GAS"][:,fp_indices[i-1]])) )
+            else
+                #println(halo_story["j_GAS"][:,fp_indices[i]])
+                println("missing j_GAS for $(storyfilelist[iii]) @ index $(fp_indices[i])")
+                merger_collection_GAS["ϕ_flip"]   = vcat( merger_collection_GAS["ϕ_flip"], missing )
+                merger_collection_GAS["δM_fromJ"] = vcat( merger_collection_GAS["δM_fromJ"], missing )
+            end
+            #println("\n$(halo_story["J_GAS"][:,fp_indices[i]]) $(halo_story["J_GAS"][:,fp_indices[i-1]])")
+            merger_collection_GAS["δM_felix"] = vcat( merger_collection_GAS["δM_felix"], convert_units_physical_mass(halo_story["M_GAS"][fp_indices[i]], head) - convert_units_physical_mass(halo_story["M_GAS"][fp_indices[i-1]], head) )
+            merger_collection_GAS["δM2_felix"] = vcat( merger_collection_GAS["δM2_felix"], convert_units_physical_mass(halo_story["M_GAS_2"][fp_indices[i]], head) - convert_units_physical_mass(halo_story["M_GAS_2"][fp_indices[i-1]], head) )
+            
+            # Merger Data
+            # Setup
+            merger_collection_GAS["M_MM"]             = vcat( merger_collection_GAS["M_MM"], 0 )
+            merger_collection_GAS["M2_MM"]            = vcat( merger_collection_GAS["M2_MM"], 0 )
+            merger_collection_GAS["J_MMorbital"]      = hcat( merger_collection_GAS["J_MMorbital"], zeros(3) )
+            merger_collection_GAS["J_SUMorbital"]     = hcat( merger_collection_GAS["J_SUMorbital"], zeros(3) )
+            merger_collection_GAS["M_MERGERS"]        = vcat( merger_collection_GAS["M_MERGERS"], 0 )
+            merger_collection_GAS["M_MISSED"]         = vcat( merger_collection_GAS["M_MISSED"], 0 )
+            merger_collection_GAS["M_CONSIDERED"]     = vcat( merger_collection_GAS["M_CONSIDERED"], 0 )
+            merger_collection_GAS["M2_MERGERS"]       = vcat( merger_collection_GAS["M2_MERGERS"], 0 )
+            merger_collection_GAS["M2_MISSED"]        = vcat( merger_collection_GAS["M2_MISSED"], 0 )
+            merger_collection_GAS["M2_CONSIDERED"]    = vcat( merger_collection_GAS["M2_CONSIDERED"], 0 )
+            # Actual check
+            for ii in merger_indices[1+sum(n_mergers[1:i-1]):sum(n_mergers[1:i])]
+                # Most Massive condition
+                head    = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][ii]))/sub_$(@sprintf("%03i", halo_story["SNAP"][ii]))")
+                if convert_units_physical_mass(halo_story["M_GAS_2"][ii], head) > merger_collection_GAS["M2_MM"][end]
+                    merger_collection_GAS["M_MM"][end]            = convert_units_physical_mass(halo_story["M_GAS"][ii], head)
+                    merger_collection_GAS["M2_MM"][end]           = convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
+                    merger_collection_GAS["J_MMorbital"][:,end]   = halo_story["J_orbital"][:,ii]
+                end
+                # Orbital Data
+                if !ismissing(halo_story["J_orbital"][1,ii]) || !ismissing(halo_story["J_orbital"][2,ii]) || !ismissing(halo_story["J_orbital"][3,ii])
+                    merger_collection_GAS["J_SUMorbital"][:,end] .+= halo_story["J_orbital"][:,ii]
+                    merger_collection_GAS["M_MERGERS"][end]       += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
+                    merger_collection_GAS["M_CONSIDERED"][end]    += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
+                    merger_collection_GAS["M2_MERGERS"][end]      += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
+                    merger_collection_GAS["M2_CONSIDERED"][end]   += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
+                    #println(halo_story["J_orbital"][:,ii])
+                else
+                    #println("$ii")
+                    merger_collection_GAS["M_MERGERS"][end]   += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
+                    merger_collection_GAS["M_MISSED"][end]    += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
+                    merger_collection_GAS["M2_MERGERS"][end]  += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
+                    merger_collection_GAS["M2_MISSED"][end]   += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
+                end
+            end
+        end
+    end
+    # Replace zeros with missings
+    replace!(merger_collection_GAS["M_MM"]         , 0. => missing)
+    replace!(merger_collection_GAS["M2_MM"]        , 0. => missing)
+    replace!(merger_collection_GAS["J_MMorbital"]  , 0. => missing)
+    replace!(merger_collection_GAS["J_SUMorbital"] , 0. => missing)
+    replace!(merger_collection_GAS["M_MERGERS"]    , 0. => missing)
+    replace!(merger_collection_GAS["M_MISSED"]     , 0. => missing)
+    replace!(merger_collection_GAS["M_CONSIDERED"] , 0. => missing)
+    replace!(merger_collection_GAS["M2_MERGERS"]   , 0. => missing)
+    replace!(merger_collection_GAS["M2_MISSED"]    , 0. => missing)
+    replace!(merger_collection_GAS["M2_CONSIDERED"], 0. => missing)
+
+
 
     save(joinpath(output_dir, "halo_$(merger_data["I_FILE"])_$(halo_story["I_SUB"][1]).jld"), 
         "halo_story",               halo_story,
         "merger_data",              merger_data,
+        "merger_collection_DM",     merger_collection_DM,
+        "merger_collection_GAS",    merger_collection_GAS,
         "merger_collection_STARS",  merger_collection_STARS)
     
 end
