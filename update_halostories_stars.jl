@@ -1,8 +1,8 @@
 ### Settings
 
 box             = "/HydroSims/Magneticum/Box4/uhr_test"
-input_dir       = "/home/moon/sfortune/spinevo/flips/halostories"
-output_dir      = "/home/moon/sfortune/spinevo/mergerimpact/halostories_update_stars"
+input_dir       = "/home/moon/sfortune/spinevo/halostories"
+output_dir      = "/home/moon/sfortune/spinevo/halostories_update_stars"
 
 
 ### Packages
@@ -37,7 +37,7 @@ storyfilelist   = readdir(input_dir)
 
 limit_filelist  = length(storyfilelist)
 println("$(limit_filelist) Runs in total.")
-for ii in 1627:limit_filelist
+for ii in 1:limit_filelist
     halo_story  = load(joinpath(input_dir, "$(storyfilelist[ii])"), "halo_story")
     head        = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][1]))/sub_$(@sprintf("%03i", halo_story["SNAP"][1]))")
     snapshot    = Snapshot(box, halo_story["SNAP"][1])
@@ -54,7 +54,7 @@ for ii in 1627:limit_filelist
                 path_to_file    = "$box/groups_$(@sprintf("%03i", halo_story["SNAP"][i]))/sub_$(@sprintf("%03i", halo_story["SNAP"][i]))"
                 head            = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][i]))/sub_$(@sprintf("%03i", halo_story["SNAP"][i]))")
                 loop_smst       = convert_units_physical(read_subfind(path_to_file, "SMST"), :mass, head)
-                halo_story["J_orbital"][:,i]    ./= ( (loop_smst[1,halo_story["I_SUB"][i]+1] + loop_smst[2,halo_story["I_SUB"][i]+1] + loop_smst[5,halo_story["I_SUB"][i]+1]) / convert_units_physical_mass(halo_story["M_STAR_2"][i], head) )
+                halo_story["J_orbital"][:,i]    ./= ( (loop_smst[1,halo_story["I_SUB"][i]+1] + loop_smst[2,halo_story["I_SUB"][i]+1] + loop_smst[5,halo_story["I_SUB"][i]+1]) )
             end
         end
         merger_data = Dict(
@@ -186,6 +186,10 @@ for ii in 1627:limit_filelist
         println("RUN $ii (Halo $(halo_story["I_SUB"][1])): Missed Mass = $mass_missed   ---  Considered Mass = $mass_added")
         flush(stdout)
 
+
+        # Rename J_orbital to j_orbital since no mass defined
+        halo_story["j_orbital"] = halo_story["J_orbital"]
+        delete!(halo_story, "J_orbital")
 
         
         save(joinpath(output_dir, "halo_$(merger_data["I_FILE"])_$(halo_story["I_SUB"][1]).jld"), 

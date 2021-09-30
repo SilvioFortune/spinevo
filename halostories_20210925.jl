@@ -73,7 +73,7 @@ limit_filelist  = length(storyfilelist)
 println("$(limit_filelist) Runs in total.")
 flush(stdout)
 for iii in 1:limit_filelist
-    println("$iii")
+    println("$iii $(storyfilelist[iii])")
     flush(stdout)
     merger_data = load(joinpath(input_dir, storyfilelist[iii]), "merger_data")
     halo_story  = load(joinpath(input_dir, storyfilelist[iii]), "halo_story")
@@ -99,7 +99,7 @@ for iii in 1:limit_filelist
     loop_length     = length(halo_story["SNAP"])
     # First Progenitors, forward in time by starting at the bottom
     for i in loop_length:-1:1
-        if i==1 || halo_story["SNAP"][i-1] > halo_story["SNAP"][i] && !ismissing(halo_story["J_STARS"][1,i]) # First Progenitor
+        if i==1 || halo_story["SNAP"][i-1] > halo_story["SNAP"][i] && count(ismissing, halo_story["J_STARS"][:,i]) == 0 # First Progenitor
             #print("FP@SNAP$(halo_story["SNAP"][i]) ")
             #flush(stdout)
     
@@ -191,7 +191,7 @@ for iii in 1:limit_filelist
         merger_collection_STARS["I_SUB"]        = vcat( merger_collection_STARS["I_SUB"], halo_story["I_SUB"][fp_indices[i]] )
         merger_collection_STARS["M_felix"]      = vcat( merger_collection_STARS["M_felix"], convert_units_physical_mass(halo_story["M_STARS"][fp_indices[i]], head) )
         merger_collection_STARS["M2_felix"]     = vcat( merger_collection_STARS["M2_felix"], convert_units_physical_mass(halo_story["M_STAR_2"][fp_indices[i]], head) )
-        if !ismissing(halo_story["j_STARS"][1,fp_indices[i]]) && !ismissing(halo_story["j_STARS"][2,fp_indices[i]]) && !ismissing(halo_story["j_STARS"][3,fp_indices[i]])
+        if count(ismissing, halo_story["j_STARS"][:,fp_indices[i]]) == 0 
             merger_collection_STARS["M_fromJ"]  = vcat( merger_collection_STARS["M_fromJ"], norm(halo_story["J_STARS"][:,fp_indices[i]]) / norm(halo_story["j_STARS"][:,fp_indices[i]]) )
         else
             merger_collection_STARS["M_fromJ"]  = vcat( merger_collection_STARS["M_fromJ"], missing )
@@ -224,12 +224,12 @@ for iii in 1:limit_filelist
             merger_collection_STARS["δJ_main"]  = hcat( merger_collection_STARS["δJ_main"], halo_story["J_STARS"][:,fp_indices[i]] .- halo_story["J_STARS"][:,fp_indices[i-1]] )
             merger_collection_STARS["δj_main"]  = hcat( merger_collection_STARS["δj_main"], halo_story["j_STARS"][:,fp_indices[i]] .- halo_story["j_STARS"][:,fp_indices[i-1]] )
             merger_collection_STARS["δBVAL"]    = vcat( merger_collection_STARS["δBVAL"], halo_story["BVAL"][fp_indices[i]] - halo_story["BVAL"][fp_indices[i-1]] )
-            if !ismissing(halo_story["j_STARS"][1,fp_indices[i]]) && !ismissing(halo_story["j_STARS"][2,fp_indices[i]]) && !ismissing(halo_story["j_STARS"][3,fp_indices[i]])
+            if count(ismissing, halo_story["j_STARS"][:,fp_indices[i]]) == 0 && count(ismissing, halo_story["j_STARS"][:,fp_indices[i-1]]) == 0 
                 merger_collection_STARS["ϕ_flip"]   = vcat( merger_collection_STARS["ϕ_flip"], acosd( transpose(halo_story["J_STARS"][:,fp_indices[i]]) * halo_story["J_STARS"][:,fp_indices[i-1]] / norm(halo_story["J_STARS"][:,fp_indices[i]]) / norm(halo_story["J_STARS"][:,fp_indices[i-1]]) ) )
                 merger_collection_STARS["δM_fromJ"] = vcat( merger_collection_STARS["δM_fromJ"], (norm(halo_story["J_STARS"][:,fp_indices[i]]) / norm(halo_story["j_STARS"][:,fp_indices[i]])) - (norm(halo_story["J_STARS"][:,fp_indices[i-1]]) / norm(halo_story["j_STARS"][:,fp_indices[i-1]])) )
             else
                 #println(halo_story["j_STARS"][:,fp_indices[i]])
-                println("missing j_STARS for $(storyfilelist[iii]) @ index $(fp_indices[i])")
+                #println("missing j_STARS for $(storyfilelist[iii]) @ index $(fp_indices[i])")
                 merger_collection_STARS["ϕ_flip"]   = vcat( merger_collection_STARS["ϕ_flip"], missing )
                 merger_collection_STARS["δM_fromJ"] = vcat( merger_collection_STARS["δM_fromJ"], missing )
             end
@@ -256,16 +256,16 @@ for iii in 1:limit_filelist
                 if convert_units_physical_mass(halo_story["M_STAR_2"][ii], head) > merger_collection_STARS["M2_MM"][end]
                     merger_collection_STARS["M_MM"][end]            = convert_units_physical_mass(halo_story["M_STARS"][ii], head)
                     merger_collection_STARS["M2_MM"][end]           = convert_units_physical_mass(halo_story["M_STAR_2"][ii], head)
-                    merger_collection_STARS["J_MMorbital"][:,end]   = halo_story["J_orbital"][:,ii]
+                    merger_collection_STARS["J_MMorbital"][:,end]   = halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_STAR_2"][ii], head)
                 end
                 # Orbital Data
-                if !ismissing(halo_story["J_orbital"][1,ii]) || !ismissing(halo_story["J_orbital"][2,ii]) || !ismissing(halo_story["J_orbital"][3,ii])
-                    merger_collection_STARS["J_SUMorbital"][:,end] .+= halo_story["J_orbital"][:,ii]
+                if count(ismissing, halo_story["j_orbital"][:,ii]) == 0
+                    merger_collection_STARS["J_SUMorbital"][:,end] .+= ( halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_STAR_2"][ii], head) )
                     merger_collection_STARS["M_MERGERS"][end]       += convert_units_physical_mass(halo_story["M_STARS"][ii], head)
                     merger_collection_STARS["M_CONSIDERED"][end]    += convert_units_physical_mass(halo_story["M_STARS"][ii], head)
                     merger_collection_STARS["M2_MERGERS"][end]      += convert_units_physical_mass(halo_story["M_STAR_2"][ii], head)
                     merger_collection_STARS["M2_CONSIDERED"][end]   += convert_units_physical_mass(halo_story["M_STAR_2"][ii], head)
-                    #println(halo_story["J_orbital"][:,ii])
+                    #println(halo_story["j_orbital"][:,ii])
                 else
                     #println("$ii")
                     merger_collection_STARS["M_MERGERS"][end]   += convert_units_physical_mass(halo_story["M_STARS"][ii], head)
@@ -339,7 +339,7 @@ for iii in 1:limit_filelist
         merger_collection_DM["I_SUB"]        = vcat( merger_collection_DM["I_SUB"], halo_story["I_SUB"][fp_indices[i]] )
         merger_collection_DM["M_felix"]      = vcat( merger_collection_DM["M_felix"], convert_units_physical_mass(halo_story["M_DM"][fp_indices[i]], head) )
         merger_collection_DM["M2_felix"]     = vcat( merger_collection_DM["M2_felix"], convert_units_physical_mass(halo_story["M_DM_2"][fp_indices[i]], head) )
-        if !ismissing(halo_story["j_DM"][1,fp_indices[i]]) && !ismissing(halo_story["j_DM"][2,fp_indices[i]]) && !ismissing(halo_story["j_DM"][3,fp_indices[i]])
+        if count(ismissing, halo_story["j_DM"][:,fp_indices[i]]) == 0
             merger_collection_DM["M_fromJ"]  = vcat( merger_collection_DM["M_fromJ"], norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["j_DM"][:,fp_indices[i]]) )
         else
             merger_collection_DM["M_fromJ"]  = vcat( merger_collection_DM["M_fromJ"], missing )
@@ -372,12 +372,13 @@ for iii in 1:limit_filelist
             merger_collection_DM["δJ_main"]  = hcat( merger_collection_DM["δJ_main"], halo_story["J_DM"][:,fp_indices[i]] .- halo_story["J_DM"][:,fp_indices[i-1]] )
             merger_collection_DM["δj_main"]  = hcat( merger_collection_DM["δj_main"], halo_story["j_DM"][:,fp_indices[i]] .- halo_story["j_DM"][:,fp_indices[i-1]] )
             merger_collection_DM["δBVAL"]    = vcat( merger_collection_DM["δBVAL"], halo_story["BVAL"][fp_indices[i]] - halo_story["BVAL"][fp_indices[i-1]] )
-            if !ismissing(halo_story["j_DM"][1,fp_indices[i]]) && !ismissing(halo_story["j_DM"][2,fp_indices[i]]) && !ismissing(halo_story["j_DM"][3,fp_indices[i]])
+            if count(ismissing, halo_story["j_DM"][:,fp_indices[i]]) == 0 && count(ismissing, halo_story["j_DM"][:,fp_indices[i-1]]) == 0
+                #println("checking error for index $(fp_indices[i])   ---   $(halo_story["J_DM"][:,fp_indices[i]])   ---   $(halo_story["J_DM"][:,fp_indices[i-1]])   ---   $(halo_story["j_DM"][:,fp_indices[i]])   ---   $(halo_story["j_DM"][:,fp_indices[i-1]])")
                 merger_collection_DM["ϕ_flip"]   = vcat( merger_collection_DM["ϕ_flip"], acosd( transpose(halo_story["J_DM"][:,fp_indices[i]]) * halo_story["J_DM"][:,fp_indices[i-1]] / norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["J_DM"][:,fp_indices[i-1]]) ) )
                 merger_collection_DM["δM_fromJ"] = vcat( merger_collection_DM["δM_fromJ"], (norm(halo_story["J_DM"][:,fp_indices[i]]) / norm(halo_story["j_DM"][:,fp_indices[i]])) - (norm(halo_story["J_DM"][:,fp_indices[i-1]]) / norm(halo_story["j_DM"][:,fp_indices[i-1]])) )
             else
                 #println(halo_story["j_DM"][:,fp_indices[i]])
-                println("missing j_DM for $(storyfilelist[iii]) @ index $(fp_indices[i])")
+                #println("missing j_DM for $(storyfilelist[iii]) @ index $(fp_indices[i])")
                 merger_collection_DM["ϕ_flip"]   = vcat( merger_collection_DM["ϕ_flip"], missing )
                 merger_collection_DM["δM_fromJ"] = vcat( merger_collection_DM["δM_fromJ"], missing )
             end
@@ -404,16 +405,16 @@ for iii in 1:limit_filelist
                 if convert_units_physical_mass(halo_story["M_DM_2"][ii], head) > merger_collection_DM["M2_MM"][end]
                     merger_collection_DM["M_MM"][end]            = convert_units_physical_mass(halo_story["M_DM"][ii], head)
                     merger_collection_DM["M2_MM"][end]           = convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
-                    merger_collection_DM["J_MMorbital"][:,end]   = halo_story["J_orbital"][:,ii]
+                    merger_collection_DM["J_MMorbital"][:,end]   = halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
                 end
                 # Orbital Data
-                if !ismissing(halo_story["J_orbital"][1,ii]) || !ismissing(halo_story["J_orbital"][2,ii]) || !ismissing(halo_story["J_orbital"][3,ii])
-                    merger_collection_DM["J_SUMorbital"][:,end] .+= halo_story["J_orbital"][:,ii]
+                if count(ismissing, halo_story["j_orbital"][:,ii]) == 0
+                    merger_collection_DM["J_SUMorbital"][:,end] .+= ( halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_DM_2"][ii], head) )
                     merger_collection_DM["M_MERGERS"][end]       += convert_units_physical_mass(halo_story["M_DM"][ii], head)
                     merger_collection_DM["M_CONSIDERED"][end]    += convert_units_physical_mass(halo_story["M_DM"][ii], head)
                     merger_collection_DM["M2_MERGERS"][end]      += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
                     merger_collection_DM["M2_CONSIDERED"][end]   += convert_units_physical_mass(halo_story["M_DM_2"][ii], head)
-                    #println(halo_story["J_orbital"][:,ii])
+                    #println(halo_story["j_orbital"][:,ii])
                 else
                     #println("$ii")
                     merger_collection_DM["M_MERGERS"][end]   += convert_units_physical_mass(halo_story["M_DM"][ii], head)
@@ -487,7 +488,7 @@ for iii in 1:limit_filelist
         merger_collection_GAS["I_SUB"]        = vcat( merger_collection_GAS["I_SUB"], halo_story["I_SUB"][fp_indices[i]] )
         merger_collection_GAS["M_felix"]      = vcat( merger_collection_GAS["M_felix"], convert_units_physical_mass(halo_story["M_GAS"][fp_indices[i]], head) )
         merger_collection_GAS["M2_felix"]     = vcat( merger_collection_GAS["M2_felix"], convert_units_physical_mass(halo_story["M_GAS_2"][fp_indices[i]], head) )
-        if !ismissing(halo_story["j_GAS"][1,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][2,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][3,fp_indices[i]])
+        if count(ismissing, halo_story["j_GAS"][:,fp_indices[i]]) == 0
             merger_collection_GAS["M_fromJ"]  = vcat( merger_collection_GAS["M_fromJ"], norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["j_GAS"][:,fp_indices[i]]) )
         else
             merger_collection_GAS["M_fromJ"]  = vcat( merger_collection_GAS["M_fromJ"], missing )
@@ -520,12 +521,12 @@ for iii in 1:limit_filelist
             merger_collection_GAS["δJ_main"]  = hcat( merger_collection_GAS["δJ_main"], halo_story["J_GAS"][:,fp_indices[i]] .- halo_story["J_GAS"][:,fp_indices[i-1]] )
             merger_collection_GAS["δj_main"]  = hcat( merger_collection_GAS["δj_main"], halo_story["j_GAS"][:,fp_indices[i]] .- halo_story["j_GAS"][:,fp_indices[i-1]] )
             merger_collection_GAS["δBVAL"]    = vcat( merger_collection_GAS["δBVAL"], halo_story["BVAL"][fp_indices[i]] - halo_story["BVAL"][fp_indices[i-1]] )
-            if !ismissing(halo_story["j_GAS"][1,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][2,fp_indices[i]]) && !ismissing(halo_story["j_GAS"][3,fp_indices[i]])
+            if count(ismissing, halo_story["j_GAS"][:,fp_indices[i]]) == 0 && count(ismissing, halo_story["j_GAS"][:,fp_indices[i-1]]) == 0
                 merger_collection_GAS["ϕ_flip"]   = vcat( merger_collection_GAS["ϕ_flip"], acosd( transpose(halo_story["J_GAS"][:,fp_indices[i]]) * halo_story["J_GAS"][:,fp_indices[i-1]] / norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["J_GAS"][:,fp_indices[i-1]]) ) )
                 merger_collection_GAS["δM_fromJ"] = vcat( merger_collection_GAS["δM_fromJ"], (norm(halo_story["J_GAS"][:,fp_indices[i]]) / norm(halo_story["j_GAS"][:,fp_indices[i]])) - (norm(halo_story["J_GAS"][:,fp_indices[i-1]]) / norm(halo_story["j_GAS"][:,fp_indices[i-1]])) )
             else
                 #println(halo_story["j_GAS"][:,fp_indices[i]])
-                println("missing j_GAS for $(storyfilelist[iii]) @ index $(fp_indices[i])")
+                #println("missing j_GAS for $(storyfilelist[iii]) @ index $(fp_indices[i])")
                 merger_collection_GAS["ϕ_flip"]   = vcat( merger_collection_GAS["ϕ_flip"], missing )
                 merger_collection_GAS["δM_fromJ"] = vcat( merger_collection_GAS["δM_fromJ"], missing )
             end
@@ -552,16 +553,16 @@ for iii in 1:limit_filelist
                 if convert_units_physical_mass(halo_story["M_GAS_2"][ii], head) > merger_collection_GAS["M2_MM"][end]
                     merger_collection_GAS["M_MM"][end]            = convert_units_physical_mass(halo_story["M_GAS"][ii], head)
                     merger_collection_GAS["M2_MM"][end]           = convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
-                    merger_collection_GAS["J_MMorbital"][:,end]   = halo_story["J_orbital"][:,ii]
+                    merger_collection_GAS["J_MMorbital"][:,end]   = halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
                 end
                 # Orbital Data
-                if !ismissing(halo_story["J_orbital"][1,ii]) || !ismissing(halo_story["J_orbital"][2,ii]) || !ismissing(halo_story["J_orbital"][3,ii])
-                    merger_collection_GAS["J_SUMorbital"][:,end] .+= halo_story["J_orbital"][:,ii]
+                if count(ismissing, halo_story["j_orbital"][:,ii]) == 0
+                    merger_collection_GAS["J_SUMorbital"][:,end] .+= ( halo_story["j_orbital"][:,ii] .* convert_units_physical_mass(halo_story["M_GAS_2"][ii], head) )
                     merger_collection_GAS["M_MERGERS"][end]       += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
                     merger_collection_GAS["M_CONSIDERED"][end]    += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
                     merger_collection_GAS["M2_MERGERS"][end]      += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
                     merger_collection_GAS["M2_CONSIDERED"][end]   += convert_units_physical_mass(halo_story["M_GAS_2"][ii], head)
-                    #println(halo_story["J_orbital"][:,ii])
+                    #println(halo_story["j_orbital"][:,ii])
                 else
                     #println("$ii")
                     merger_collection_GAS["M_MERGERS"][end]   += convert_units_physical_mass(halo_story["M_GAS"][ii], head)
