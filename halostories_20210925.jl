@@ -59,8 +59,9 @@ end
 ### Settings
 box         = "/HydroSims/Magneticum/Box4/uhr_test"
 input_dir   = "/home/moon/sfortune/spinevo/halostories_update_stars"
-output_dir  = "/home/moon/sfortune/spinevo/halostories_20210925"
-min_time    = 600
+min_time    = 0.9   # Gyr
+max_time    = 1.5   # Gyr, not used yet
+output_dir  = "/home/moon/sfortune/spinevo/halostories_v20210925_min$(min_time)Gyr"
 
 
 
@@ -90,26 +91,40 @@ for iii in 1:limit_filelist
     loop_J_sum      = zeros(3)
     mass_missed     = 0.
     mass_added      = 0.
-    
+
+    # Make lookbacktime array
+    lbt = Array{Float64}(undef, 0)
+    for i in 1:length(halo_story["SNAP"])
+        head    = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][i]))/sub_$(@sprintf("%03i", halo_story["SNAP"][i]))")
+        lbt     = vcat( lbt, ustrip(lookback_time(cosmology(h=head.h0, OmegaM=head.omega_0), head.z)) )
+    end
+
+    # First Progenitors, backward in time
     fp_indices      = Array{Int64}(undef, 0)
     fp_snaps        = Array{Int64}(undef, 0)
-    n_mergers       = Array{Int64}(undef, 0)
-    merger_indices  = Array{Int64}(undef, 0)
-    
     loop_length     = length(halo_story["SNAP"])
-    # First Progenitors, forward in time by starting at the bottom
-    for i in loop_length:-1:1
+    for i in 1:loop_length
         if i==1 || halo_story["SNAP"][i-1] > halo_story["SNAP"][i] && count(ismissing, halo_story["J_STARS"][:,i]) == 0 # First Progenitor
             #print("FP@SNAP$(halo_story["SNAP"][i]) ")
             #flush(stdout)
-    
-            fp_indices  = vcat( fp_indices, i )
-            fp_snaps    = vcat( fp_snaps, halo_story["SNAP"][i] )
+            if length(fp_indices) == 0# && lbt[i]-lbt[1] > min_time
+                fp_indices  = vcat( fp_indices, i )
+                fp_snaps    = vcat( fp_snaps, halo_story["SNAP"][i] )
+            elseif length(fp_indices) > 0 && lbt[i]-lbt[fp_indices[end]] > min_time
+                fp_indices  = vcat( fp_indices, i )
+                fp_snaps    = vcat( fp_snaps, halo_story["SNAP"][i] )
+            end
         end
     end
-    
+    # Reverse to forward in time
+    fp_indices      = fp_indices[end:-1:1]
+    fp_snaps        = fp_snaps[end:-1:1]
+    #println(fp_indices)
+    #println(fp_snaps)
     
     merger_count    = 0
+    n_mergers       = Array{Int64}(undef, 0)
+    merger_indices  = Array{Int64}(undef, 0)
     # check if first snap already contains a first progenitor
     if fp_snaps[1] == halo_story["SNAP"][end]
         fp_index    = 2
@@ -119,11 +134,12 @@ for iii in 1:limit_filelist
     end
     # Merger Map, forward in time by starting at the bottom
      for i in loop_length:-1:1
+        #print("$i ")
         # Check out Merger Info and assign to next
         if halo_story["SNAP"][i] == fp_snaps[fp_index] # First Progenitor
-            n_mergers   = vcat( n_mergers, merger_count )
-            merger_count = 0
-            fp_index   += 1
+            n_mergers       = vcat( n_mergers, merger_count )
+            merger_count    = 0
+            fp_index       += 1
         end
     
         # Identify Mergers
