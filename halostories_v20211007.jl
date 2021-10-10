@@ -343,7 +343,7 @@ for iii in 1:limit_filelist
     replace!(merger_collection_STARS["M2_MERGERS"]   , 0. => missing)
     replace!(merger_collection_STARS["M2_MISSED"]    , 0. => missing)
     replace!(merger_collection_STARS["M2_CONSIDERED"], 0. => missing)
-    replace!(merger_collection_STARS["Merger_Map"][1:4,:], 0. => missing)
+    #replace!(merger_collection_STARS["Merger_Map"][1:4,:], 0. => missing)
 
 
     # Fill the DM dictionary
@@ -506,7 +506,7 @@ for iii in 1:limit_filelist
     replace!(merger_collection_DM["M2_MERGERS"]   , 0. => missing)
     replace!(merger_collection_DM["M2_MISSED"]    , 0. => missing)
     replace!(merger_collection_DM["M2_CONSIDERED"], 0. => missing)
-    replace!(merger_collection_DM["Merger_Map"][1:4,:], 0. => missing)
+    #replace!(merger_collection_DM["Merger_Map"][1:4,:], 0. => missing)
 
 
     # Fill the GAS dictionary
@@ -668,7 +668,7 @@ for iii in 1:limit_filelist
     replace!(merger_collection_GAS["M2_MERGERS"]   , 0. => missing)
     replace!(merger_collection_GAS["M2_MISSED"]    , 0. => missing)
     replace!(merger_collection_GAS["M2_CONSIDERED"], 0. => missing)
-    replace!(merger_collection_GAS["Merger_Map"][1:4,:], 0. => missing)
+    #replace!(merger_collection_GAS["Merger_Map"][1:4,:], 0. => missing)
 
 
 
