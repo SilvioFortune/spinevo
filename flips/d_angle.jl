@@ -18,9 +18,9 @@ using Cosmology
 
 ### Setup
 
-flipangle       = 90
+flipangle       = 30
 th_MSOLAR       = 1e10
-dir_halostories = "/home/moon/sfortune/spinevo/mergerimpact/halostories_update_stars"
+dir_halostories = "/home/moon/sfortune/spinevo/halostories_update_stars"
 box             = "/HydroSims/Magneticum/Box4/uhr_test/"
 
 storyfilelist   = readdir(dir_halostories)
@@ -42,6 +42,7 @@ angle_data = Dict(
     "STORY_FLIPS"   => Array{Int64}(undef, 0), 
     "STORY_IFILE"   => Array{Int64}(undef, 0), 
     "STORY_BVAL"    => Array{Float64}(undef, 0),
+    "STORY_BVAL_START"    => Array{Float64}(undef, 0),
     "STORY_M_fromJ" => Array{Float64}(undef, 0),
     "I_FILE"        => Array{Int64}(undef, 0), 
     "I_SUB"         => Array{Int64}(undef, 0) )
@@ -107,6 +108,7 @@ for i in 1:limit_filelist
             angle_data["STORY_FLIPS"]   = vcat(angle_data["STORY_FLIPS"],   n_flips)
             angle_data["STORY_IFILE"]   = vcat(angle_data["STORY_IFILE"],   halo_story["ID"])
             angle_data["STORY_BVAL"]    = vcat(angle_data["STORY_BVAL"],    angle_data["BVAL"][end])
+            angle_data["STORY_BVAL_START"]    = vcat(angle_data["STORY_BVAL_START"],    angle_data["BVAL"][1])
             angle_data["STORY_M_fromJ"] = vcat(angle_data["STORY_M_fromJ"], angle_data["M_fromJ"][end])
         end
     #else
