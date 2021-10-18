@@ -16,7 +16,6 @@ using GadgetGalaxies
 using Unitful
 using UnitfulAstro
 using Missings
-using HypothesisTests
 using Distributions
 using CSV
 using DataFrames
