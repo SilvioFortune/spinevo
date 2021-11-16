@@ -1,22 +1,34 @@
 ### Plot galaxies
 
 include("/home/moon/sfortune/spinevo/spinevo.jl")
-using JSServe
 JSServe.configure_server!(listen_port=1688, forwarded_port=1688)
+set_theme!(resolution=(1920, 1080), backgroundcolor = :black)
 
-using WGLMakie
-WGLMakie.activate!()
+
+# Test plotting window
+N = 60
+function xy_data(x, y)
+    r = sqrt(x^2 + y^2)
+    r == 0.0 ? 1f0 : (sin(r)/r)
+end
+l = range(-10, stop = 10, length = N)
+z = Float32[xy_data(x, y) for x in l, y in l]
+
+scene = Scene()
+surface!( scene,
+        -1..1, -1..1, z,
+        colormap = :solar
+)
+scene
 
 ##################################################################
 ### Settings
 
-snapNR  = 124# 124# 128
-subID   = 8366# 8366# 8127
+snapNR  = 128# 124# 128
+subID   = 8127# 8366# 8127
 nbID    = 8129
 box     = "/HydroSims/Magneticum/Box4/uhr_test"
 
-
-set_theme!(resolution=(1920, 1080), backgroundcolor = :black)
 
 ##################################################################
 
@@ -28,6 +40,85 @@ set_theme!(resolution=(1920, 1080), backgroundcolor = :black)
 snapshot    = Snapshot(box, snapNR)
 snapshot.snapbase
 snapshot.subbase
+
+galaxyID_list   = find_merging_progenitors(snapNR; felixID=18)
+galaxies        = Dict{Int64, Any}()
+particleID_list = Array{UInt64}(undef,0)
+for i in 1:length(galaxyID_list)
+    galaxies[i] = Galaxy(snapshot, galaxyID_list[i])
+    rvir_group  = read_galaxy_prop(get_group(galaxies[1]), "RVIR", :physical)
+    sph_small   = GadgetGalaxies.Sphere(0.1*rvir_group)
+    sph_large   = GadgetGalaxies.Sphere(rvir_group)
+    read_halo!(galaxies[i], units=:physical, props=((:stars, ["POS", "VEL", "MASS", "ID"]),), radius_units=:physical, radius=0.1*rvir_group)
+    galaxies[i].stars.pos .+= read_galaxy_pos(galaxies[i], :physical)
+    particleID_list         = vcat(particleID_list, galaxies[i].stars.id)
+    #read_halo!(galaxies[i], units=:physical, props=((:gas, ["POS", "VEL", "MASS"]),), radius_units=:physical, radius=0.1*rvir_group)
+    #read_halo!(galaxies[i], units=:physical, props=((:dm, ["POS", "VEL"]),), radius_units=:physical, radius=rvir_group)
+end
+
+# all particles
+head        = read_header("$box/groups_$(@sprintf("%03i", snapNR))/sub_$(@sprintf("%03i", snapNR))")
+filepath    = "$box/snapdir_$(@sprintf("%03i", snapNR))/snap_$(@sprintf("%03i", snapNR))"
+blocks      = ["MASS", "POS", "ID", "VEL"]
+radius      = 200
+position    = read_galaxy_pos(galaxies[1], :sim)
+ALL_STARS   = read_particles_in_volume(filepath, blocks, position, radius; parttype=4, verbose=true, use_keys=true)
+#ALL_STARS["POS"]    .-= position
+ALL_STARS["MASS"]   = convert_units_physical(ALL_STARS["MASS"], :mass, head)
+ALL_STARS["POS"]    = convert_units_physical(ALL_STARS["POS"], :pos, head)
+
+
+# Crop duplicates with target
+all_notin   = ALL_STARS["ID"] .∉ Ref(Set(particleID_list))
+
+stepsize = 1
+size_factor = 3000 / maximum(galaxies[1].stars.mass)
+radius_plot = 500 #kpc
+#f = WGLMakie.Figure()
+#ax = Axis3(f[1, 1])
+#xlims!(ax, (read_galaxy_pos(galaxies[1], :physical)[1]-200, read_galaxy_pos(galaxies[1], :physical)[1]+200))
+#ylims!(ax, (read_galaxy_pos(galaxies[1], :physical)[2]-200, read_galaxy_pos(galaxies[1], :physical)[2]+200))
+#zlims!(ax, (read_galaxy_pos(galaxies[1], :physical)[3]-200, read_galaxy_pos(galaxies[1], :physical)[3]+200))
+#f
+scene = Scene()
+scatter!( scene,
+    ALL_STARS["POS"][:,all_notin],
+    color = ALL_STARS["MASS"][all_notin] .* size_factor,
+    #markersize = log10.(ALL_STARS["MASS"][1:stepsize:end]) .* size_factor ),
+    markersize = ALL_STARS["MASS"][all_notin] .* size_factor,
+    colormap = :autumn1,
+    transparency = false
+    )
+
+# Halos
+#scene = Scene()
+for i in 1:length(galaxyID_list)
+    if i == 1
+        scatter!( scene,
+            galaxies[i].stars.pos[:,1:stepsize:end],
+            color = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,
+            markersize = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,#markersize = 0.1,
+            colormap = :winter,
+            transparency = false
+            )
+    else
+        scatter!( scene,
+            galaxies[i].stars.pos[:,1:stepsize:end],
+            color = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,
+            markersize = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,#markersize = 0.1,
+            colormap = :summer,
+            transparency = false
+            )
+    end
+end
+#cam3d!(scene; lookat = read_galaxy_pos(galaxies[1], :physical))
+#Camera3D(scene; rotation_center = read_galaxy_pos(galaxies[1], :physical))
+scene
+
+#plotrange   = FRect3D(read_galaxy_pos(galaxies[1], :physical), [100,100,100])
+#update_limits!(scene, plotrange)
+
+
 g           = Galaxy(snapshot, subID)
 g_nb        = Galaxy(snapshot, nbID)
 rvir_group  = read_galaxy_prop(get_group(g), "RVIR", :physical)
@@ -70,20 +161,6 @@ plot_positions, plot_masses, plot_n = reduce_n_particles(length(g.stars.pos[1,:]
 stacked_grid_pos, stacked_grid_mass, stacked_grid_n = reduce_n_particles(length(stacked_pos[1,:])/reduction_factor, stacked_pos, stacked_mass, "center", 0.5)
 
 ##################################################################
-
-# Test plotting window
-N = 60
-function xy_data(x, y)
-    r = sqrt(x^2 + y^2)
-    r == 0.0 ? 1f0 : (sin(r)/r)
-end
-l = range(-10, stop = 10, length = N)
-z = Float32[xy_data(x, y) for x in l, y in l]
-
-surface(
-        -1..1, -1..1, z,
-        colormap = :solar
-)
 
 ##################################################################
 ### Plot

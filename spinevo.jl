@@ -24,6 +24,10 @@ using Cosmology
 using Suppressor
 using StatsBase
 using ColorSchemes
+using JSServe
+using WGLMakie
+WGLMakie.activate!()
+
 
 ##################################################################
 
@@ -82,27 +86,6 @@ function orbit_j(subID, centID, snapNR; boxNR=4) # Find central sub maybe using 
     return ((spos[:,subID+1] .- spos[:,centID+1]) × (svel[:,subID+1] .- svel[:,centID+1]))
 end
 print("'orbit_j'   ")
-
-
-# Calculate Total Halo velocity
-function avg_velocity(m_ar, vel_ar)
-    """
-    DESCRIPTION:
-        - mean velocity by mass-weighted velocities
-    INPUT:
-        - m_ar:     mass array dimensions: n
-        - vel_ar:   velocity array dimensions: (3,n)
-    OUTPUT:
-        - mean velocity vector
-    """
-    tot_vel = zeros(3)
-    for i in 1:length(m_ar)
-        tot_vel += m_ar[i] .* vel_ar[:,i]
-    end
-    tot_vel ./= sum(m_ar)
-    return tot_vel
-end
-print("'avg_velocity'   ")
 
 
 function borders_tan(coord, steplength, flim)
@@ -265,7 +248,7 @@ function find_subID(ifelix; dir="/home/moon/sfortune/spinevo/halostories_v202110
     for i in 1:length(storyfilelist)
         if occursin("halo_$(ifelix)_", storyfilelist[i])
             halo_filestring = storyfilelist[i]
-            isub            = parse( Int64, chop( replace( halo_filestring, "$(ifelix)" => "" ), head=6,tail=4 ) )
+            isub            = parse( Int64, chop( replace( halo_filestring, "_$(ifelix)_" => "__" ), head=6,tail=4 ) )
         end
     end
     return isub, halo_filestring
@@ -325,10 +308,145 @@ function aligner(x; ref=[0,0,1])
     vx      = x × ref
     cx      = transpose(x) * ref
     Vx      = [0 -vx[3] vx[2]; vx[3] 0 -vx[1]; -vx[2] vx[1] 0]
-    rotmat  = I + Vx + (Vx * Vx ./ (1+cx))
-    return rotmat
+    return I + Vx + (Vx * Vx ./ (1+cx))
 end
 print("'aligner'   ")
+
+function find_merging_progenitors(snapNR; felixID="", lastID="", subID="", path_to_halostories="/home/moon/sfortune/spinevo/halostories_v20211007_min0.9Gyr", check_ambiguity=false)
+    #subIDlist = Array{Int64}(undef, 0)
+    if typeof(felixID)==Int  # simple case since tree is provided
+        halo_story  = load(joinpath(path_to_halostories, "halo_$(felixID)_$(find_subID(felixID; dir=path_to_halostories)[1]).jld"), "halo_story")
+        #subIDlist   = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+        return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+    elseif typeof(lastID)==Int  # simple case since tree is provided
+        halo_story  = load(joinpath(path_to_halostories, "halo_$(find_felixID(lastID; dir=path_to_halostories)[1])_$(lastID).jld"), "halo_story")
+        #subIDlist   = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+        return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+    elseif typeof(subID)==Int   # here we need to find the right tree first
+        storyfilelist   = readdir(path_to_halostories)
+        if check_ambiguity
+            subIDlist = Array{Int64}(undef, 0)
+            for i in 1:length(storyfilelist)
+                print("$i ")
+                halo_story  = load(joinpath(path_to_halostories, storyfilelist[i]), "halo_story")
+                if length(findall(x->x.==subID, halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])])) > 0
+                    if length(subIDlist) == 0
+                        subIDlist = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+                    else
+                        error("Combination of subID and snapNR is ambiguous.")
+                    end
+                end
+            end
+            return subIDlist
+        else
+            for i in 1:length(storyfilelist)
+                print("$i ")
+                halo_story  = load(joinpath(path_to_halostories, storyfilelist[i]), "halo_story")
+                if length(findall(x->x.==subID, halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])])) > 0
+                    return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+                    break
+                end
+            end
+        end
+    else
+        error("Either felixID, subID or lastID has to be provided.")
+    end
+end
+print("'find_merging_progenitors'   ")
+
+function plot_group(snapNR; box="/HydroSims/Magneticum/Box4/uhr_test", res=(1920,1080), felixID="", subID="", lastID="", rad=200, size=3000, port=1688)
+    """
+    DESCRIPTION:
+        - Use WGLMakie to plot a galaxy, its mergers and its surroundings
+    INPUT:
+        - snapNR:   snapshot number
+        - subID:    subhalo ID
+        - box:      path to simulation box
+        - res:      plot resolution (m, n)
+        - felixID:  felix ID to quickly find the right group
+        - rad:      radius for surrounding medium from GadgetIO in kpc
+        - size:     size of scatterplot particles
+        - port:     ports used on local and remote
+    OUTPUT:
+        - scene:    plot
+    """
+    JSServe.configure_server!(listen_port=port, forwarded_port=port)
+
+    if typeof(felixID)==Int  # simple case since tree is provided
+        galaxyID_list   = find_merging_progenitors(snapNR; felixID=felixID)
+    elseif typeof(lastID)==Int  # simple case since tree is provided
+        galaxyID_list   = find_merging_progenitors(snapNR; lastID=lastID)
+    elseif typeof(subID)==Int   # here we need to find the right tree first
+        galaxyID_list   = find_merging_progenitors(snapNR; subID=subID)
+    else
+        error("Either felixID, subID or lastID has to be provided.")
+    end
+
+
+    set_theme!(resolution=res, backgroundcolor = :black)
+    ### Data processing
+    snapshot    = Snapshot(box, snapNR)
+    snapshot.snapbase
+    snapshot.subbase
+    galaxies        = Dict{Int64, Any}()
+    particleID_list = Array{UInt64}(undef,0)
+    for i in 1:length(galaxyID_list)
+        galaxies[i] = Galaxy(snapshot, galaxyID_list[i])
+        rvir_group  = read_galaxy_prop(get_group(galaxies[1]), "RVIR", :physical)
+        sph_small   = GadgetGalaxies.Sphere(0.1*rvir_group)
+        sph_large   = GadgetGalaxies.Sphere(rvir_group)
+        read_halo!(galaxies[i], units=:physical, props=((:stars, ["POS", "VEL", "MASS", "ID"]),), radius_units=:physical, radius=0.1*rvir_group)
+        galaxies[i].stars.pos .+= read_galaxy_pos(galaxies[i], :physical)
+        particleID_list         = vcat(particleID_list, galaxies[i].stars.id)
+        #read_halo!(galaxies[i], units=:physical, props=((:gas, ["POS", "VEL", "MASS"]),), radius_units=:physical, radius=0.1*rvir_group)
+        #read_halo!(galaxies[i], units=:physical, props=((:dm, ["POS", "VEL"]),), radius_units=:physical, radius=rvir_group)
+    end
+    # all particles
+    head        = read_header("$box/groups_$(@sprintf("%03i", snapNR))/sub_$(@sprintf("%03i", snapNR))")
+    filepath    = "$box/snapdir_$(@sprintf("%03i", snapNR))/snap_$(@sprintf("%03i", snapNR))"
+    blocks      = ["MASS", "POS", "ID"]
+    radius      = rad * ( read_galaxy_pos(galaxies[1], :sim) ./ read_galaxy_pos(galaxies[1], :physical) )[1] # conversion into simulation units, mean is for 
+    position    = read_galaxy_pos(galaxies[1], :sim)
+    ALL_STARS   = read_particles_in_volume(filepath, blocks, position, radius; parttype=4, verbose=true, use_keys=true)
+    #ALL_STARS["POS"]    .-= position
+    ALL_STARS["MASS"]   = convert_units_physical(ALL_STARS["MASS"], :mass, head)
+    ALL_STARS["POS"]    = convert_units_physical(ALL_STARS["POS"], :pos, head)
+    # Crop duplicates with target
+    all_notin   = ALL_STARS["ID"] .∉ Ref(Set(particleID_list))
+    size_factor = size / maximum(galaxies[1].stars.mass)
+    #Plotting
+    scene = Scene()
+    scatter!( scene,
+        ALL_STARS["POS"][:,all_notin],
+        color = ALL_STARS["MASS"][all_notin] .* size_factor,
+        #markersize = log10.(ALL_STARS["MASS"][1:stepsize:end]) .* size_factor ),
+        markersize = ALL_STARS["MASS"][all_notin] .* size_factor,
+        colormap = :autumn1,
+        transparency = false
+        )
+    # Halos
+    for i in 1:length(galaxyID_list)
+        if i == 1
+            scatter!( scene,
+                galaxies[i].stars.pos[:,1:stepsize:end],
+                color = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,
+                markersize = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,#markersize = 0.1,
+                colormap = :winter,
+                transparency = false
+                )
+        else
+            scatter!( scene,
+                galaxies[i].stars.pos[:,1:stepsize:end],
+                color = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,
+                markersize = galaxies[i].stars.mass[1:stepsize:end] .* size_factor,#markersize = 0.1,
+                colormap = :summer,
+                transparency = false
+                )
+        end
+    end
+    return scene
+end
+print("'plot_group'   ")
 
 
 println()
