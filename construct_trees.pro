@@ -16,7 +16,7 @@ READCOLRHEA,file,nrsub,nrsubf,r_half_3d,r_half_2d,eps,eps_edge_on,l_r,l_r_edge_o
 ; loop over all followed halos
 ; ----------------------------
 
-FOR j=705, N_ELEMENTS(nrsubf)-1 DO BEGIN
+FOR j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
 
     i_sub=nrsubf(j)
     str=STRTRIM(string(j),2)

@@ -1,8 +1,8 @@
 ### Plot galaxies
 
-include("/home/moon/sfortune/spinevo/spinevo.jl")
+include("/home/moon/sfortune/spinevo/pkg/meta.jl")
 JSServe.configure_server!(listen_port=1688, forwarded_port=1688)
-set_theme!(resolution=(1920, 1080), backgroundcolor = :black)
+set_theme!(resolution=(1600, 900), backgroundcolor = :black)
 
 
 # Test plotting window
@@ -14,12 +14,48 @@ end
 l = range(-10, stop = 10, length = N)
 z = Float32[xy_data(x, y) for x in l, y in l]
 
+surface(
+        -1..1, -1..1, z,
+        colormap = :winter,
+        shading = false
+)
+
 scene = Scene()
 surface!( scene,
         -1..1, -1..1, z,
-        colormap = :solar
+        colormap = :winter,
+        shading = false
 )
 scene
+
+
+
+a       = [ 1. 2. 3. 1.; 2. 3. 1. 3.; 3. 1. 2. 2.]
+v       = [0.1 2. -0.3 -1.; 0.2 3. -0.1 -2.; 0.3 1. -0.2 -3.]
+mass    = [1., 10., 100., 1000.]
+size    = 0.1
+scaling = 
+scene = Scene()
+arrows!( scene, 
+    a[1,:], a[2,:], a[3,:],
+    v[1,:], v[2,:], v[3,:],
+    lengthscale = size * (maximum(a[1,:])-minimum(a[1,:])) / maximum(v),
+    arrowsize   = (size*(maximum(a[1,:])-minimum(a[1,:])) / maximum(mass)) .* mass,
+    linewidth   = 0.005,
+    linecolor   = mass .* norm.(eachcol(v)),
+    arrowcolor  = mass .* norm.(eachcol(v)),
+    colormap    = :winter,
+    align       = :head,
+    quality     = 3,
+    shading     = false,
+    ssao        = false,
+    #diffuse     = [0.01, 0.01, 0.01],
+    #transparency    = RGBAf0,
+    normalize   = false,
+)
+scene
+
+streamplot(f, -1.5..1.5, -1.5..1.5, colormap = :magma)
 
 ##################################################################
 ### Settings
@@ -30,7 +66,8 @@ nbID    = 8129
 box     = "/HydroSims/Magneticum/Box4/uhr_test"
 
 
-##################################################################
+##################
+snapNR  = 128# 124# 128################################################
 
 
 
@@ -109,6 +146,7 @@ for i in 1:length(galaxyID_list)
             colormap = :summer,
             transparency = false
             )
+            snapNR  = 128# 124# 128
     end
 end
 #cam3d!(scene; lookat = read_galaxy_pos(galaxies[1], :physical))
@@ -295,3 +333,8 @@ scatter!( scene,
     transparency = false
     )
 scene
+
+
+
+
+

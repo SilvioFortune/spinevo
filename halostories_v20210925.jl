@@ -26,37 +26,6 @@ using Suppressor
 
 ### Functions
 
-# Tranform Cartesian vector into [r,θ,ϕ] Spherical vector
-function cartesian_to_spherical(x)
-    s = zeros(3)
-    s[1]    = norm(x) # Radius
-    s[2]    = acosd(x[3] / s[1])# * 180 / π # θ[°]
-    s[3]    = acosd(x[1] / sqrt(x[1]*x[1] + x[2]*x[2]))# * 180 / π # ϕ[°]
-    return s
-end
-
-# Rotation Matrix to align x with reference vector
-function aligner(x, ref=[0,0,1])
-    x       = x ./ norm(x)
-    ref     = ref ./ norm(ref)
-    vx      = x × ref
-    cx      = transpose(x) * ref
-    Vx      = [0 -vx[3] vx[2]; vx[3] 0 -vx[1]; -vx[2] vx[1] 0]
-    aligner = I + Vx + (Vx * Vx ./ (1+cx))
-    return aligner
-end
-
-function orbit_J(subID, centID, pathtofile) # Find central sub maybe using SUBFIND -> centID = FSUB[GRNR[subID+1]+1]
-    # Read subhalo features
-    head        = read_header(pathtofile)
-    smst        = convert_units_physical(read_subfind(pathtofile, "SMST"), :mass, head)
-    spos        = convert_units_physical(read_subfind(pathtofile, "SPOS"), :pos, head)
-    svel        = read_subfind(pathtofile, "SVEL") # no conversion since already physical units??
-    # Return with masses added
-    return ((spos[:,subID+1] .- spos[:,centID+1]) × (svel[:,subID+1] .- svel[:,centID+1])) .* (smst[1,subID+1]+smst[2,subID+1]+smst[5,subID+1])
-end
-
-
 
 ### Settings
 box         = "/HydroSims/Magneticum/Box4/uhr_test"

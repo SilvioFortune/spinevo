@@ -92,7 +92,7 @@ for iii in 1:limit_filelist
     halo_story  = load(joinpath(input_dir, storyfilelist[iii]), "halo_story")
 
     head        = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][1]))/sub_$(@sprintf("%03i", halo_story["SNAP"][1]))")
-    head2        = read_header("$box/groups_$(@sprintf("%03i", halo_story["SNAP"][1]-3))/sub_$(@sprintf("%03i", halo_story["SNAP"][1]-3))")
+    head2        = read_header("$box/groups_$(@sprintf("%03imerger_data", halo_story["SNAP"][1]-3))/sub_$(@sprintf("%03i", halo_story["SNAP"][1]-3))")
     id_mfelix   = convert_units_physical_mass(halo_story["M_STARS"][1], head)
     id_m2       = convert_units_physical_mass(halo_story["M_STAR_2"][1], head2)
     
@@ -197,6 +197,7 @@ for iii in 1:limit_filelist
             "M2_felix"      => missings(Float64 , 0), 
             "M_fromJ"       => missings(Float64 , 0), 
             "ϕ_flip"        => missings(Float64 , 0), 
+            "ANG_neighbors" => missings(Float64 , 0), 
             "M_MERGERS"     => missings(Float64 , 0),
             "M_MISSED"      => missings(Float64 , 0), 
             "M_CONSIDERED"  => missings(Float64 , 0),  
@@ -365,6 +366,7 @@ for iii in 1:limit_filelist
             "M2_felix"      => missings(Float64 , 0), 
             "M_fromJ"       => missings(Float64 , 0), 
             "ϕ_flip"        => missings(Float64 , 0), 
+            "ANG_neighbors" => missings(Float64 , 0), 
             "M_MERGERS"     => missings(Float64 , 0),
             "M_MISSED"      => missings(Float64 , 0), 
             "M_CONSIDERED"  => missings(Float64 , 0),  
@@ -528,6 +530,7 @@ for iii in 1:limit_filelist
             "M2_felix"      => missings(Float64 , 0), 
             "M_fromJ"       => missings(Float64 , 0), 
             "ϕ_flip"        => missings(Float64 , 0), 
+            "ANG_neighbors" => missings(Float64 , 0), 
             "M_MERGERS"     => missings(Float64 , 0),
             "M_MISSED"      => missings(Float64 , 0), 
             "M_CONSIDERED"  => missings(Float64 , 0),  
@@ -657,16 +660,16 @@ for iii in 1:limit_filelist
         end
     end
     # Replace zeros with missings
-    replace!(merger_collection_GAS["M_MM"]         , 0. => missing)
-    replace!(merger_collection_GAS["M2_MM"]        , 0. => missing)
     replace!(merger_collection_GAS["J_MMorbital"]  , 0. => missing)
     replace!(merger_collection_GAS["J_SUMorbital"] , 0. => missing)
-    replace!(merger_collection_GAS["M_MERGERS"]    , 0. => missing)
-    replace!(merger_collection_GAS["M_MISSED"]     , 0. => missing)
-    replace!(merger_collection_GAS["M_CONSIDERED"] , 0. => missing)
-    replace!(merger_collection_GAS["M2_MERGERS"]   , 0. => missing)
-    replace!(merger_collection_GAS["M2_MISSED"]    , 0. => missing)
-    replace!(merger_collection_GAS["M2_CONSIDERED"], 0. => missing)
+    #replace!(merger_collection_GAS["M_MM"]         , 0. => missing)
+    #replace!(merger_collection_GAS["M2_MM"]        , 0. => missing)
+    #replace!(merger_collection_GAS["M_MERGERS"]    , 0. => missing)
+    #replace!(merger_collection_GAS["M_MISSED"]     , 0. => missing)
+    #replace!(merger_collection_GAS["M_CONSIDERED"] , 0. => missing)
+    #replace!(merger_collection_GAS["M2_MERGERS"]   , 0. => missing)
+    #replace!(merger_collection_GAS["M2_MISSED"]    , 0. => missing)
+    #replace!(merger_collection_GAS["M2_CONSIDERED"], 0. => missing)
     #replace!(merger_collection_GAS["Merger_Map"][1:4,:], 0. => missing)
 
 
