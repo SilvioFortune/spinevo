@@ -5,6 +5,12 @@ JSServe.configure_server!(listen_port=1688, forwarded_port=1688)
 set_theme!(resolution=(1600, 900), backgroundcolor = :black)
 
 
+for i in 1:length(smm["ratio"])
+    if smm["ratio"][i] < 1e-2
+        println("$(smm["ratio"][i])   ---   $(smm["snapNR"][i])   ---   $(smm["lastID"][i])")
+    end
+end
+
 # Test plotting window
 N = 60
 function xy_data(x, y)

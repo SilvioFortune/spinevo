@@ -136,7 +136,7 @@ OUTPUT:\n
     - isub:             Int; halo ID according to Felix' notation
     - halo_filestring:  String; jld filename of that halo
 """ ->
-function find_felixID(isub; dir="/home/moon/sfortune/spinevo/halostories_v20211007_min0.0Gyr")
+function find_felixID(isub; dir="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr")
     storyfilelist   = readdir(dir)
     halo_filestring = " "
     ifelix          = Int64
@@ -162,7 +162,7 @@ OUTPUT:\n
     - isub:             Int64; sub ID in the final snap shot
     - halo_filestring:  String; jld filename of that halo
 """ ->
-function find_lastID(ifelix; dir="/home/moon/sfortune/spinevo/halostories_v20211007_min0.0Gyr")
+function find_lastID(ifelix; dir="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr")
     storyfilelist   = readdir(dir)
     halo_filestring = " "
     isub            = Int64
@@ -241,7 +241,8 @@ end
 print("'aligner'   ")
 
 
-function find_merging_progenitors(snapNR; felixID="", lastID="", subID="", path_to_halostories="/home/moon/sfortune/spinevo/halostories_v20211007_min0.9Gyr", check_ambiguity=false)
+function find_merging_progenitors(snapNR; felixID="", lastID="", subID="", 
+    path_to_halostories="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr", check_ambiguity=false)
     #subIDlist = Array{Int64}(undef, 0)
     if typeof(felixID)==Int  # simple case since tree is provided
         halo_story  = load(joinpath(path_to_halostories, "halo_$(felixID)_$(find_lastID(felixID; dir=path_to_halostories)[1]).jld"), "halo_story")
@@ -283,6 +284,93 @@ function find_merging_progenitors(snapNR; felixID="", lastID="", subID="", path_
 end
 
 print("'find_merging_progenitors'   ")
+
+
+@doc """
+DESCRIPTION:\n
+    - Scan merger map for indices with condition
+INPUT:\n
+    - asmbly:       dictionary
+    -- condtition:  
+OUTPUT:\n
+    - dictionary
+""" ->
+function mergermap_indices(asmly; 
+    condition="mergers", mtype=2,
+    min=-1, max=1e16
+    )
+    mm_i    = Dict{String, Vector{Union{Missing, Int64}}}()
+    mm_i["main"]            = missings(Int64, 0)
+    if condition == "mergers"
+        mm_i["most_massive"]    = missings(Int64, 0)
+        mm_i["last"]            = missings(Int64, 0)
+        mm_i["first"]           = missings(Int64, 0)
+        for i in 1:length(asmly["SNAP"])
+            if sum( asmly["Merger_Map"][2, 1+sum(asmly["N_MERGERS"][1:i-1]) : sum(asmly["N_MERGERS"][1:i])] ) > 0. # is there a merger?
+                mm_i["most_massive"]    = vcat( mm_i["most_massive"], sum(asmly["N_MERGERS"][1:i-1]) + argmax( asmly["Merger_Map"][mtype,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])] ) )
+                mm_i["main"] = vcat( mm_i["main"], i )
+                mm_i["last"] = vcat( mm_i["last"], sum(asmly["N_MERGERS"][1:i]) )
+                mm_i["first"] = vcat( mm_i["first"], sum(asmly["N_MERGERS"][1:i-1]) + 1 )
+            end
+        end
+    elseif condition == "mass diff" 
+        for i in 1:length(asmly["SNAP"])
+            if !ismissing(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i]) && min < abs(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i])/asmly[ifelse(mtype==1,"M_felix","M2_felix")][i] < max # mass change
+                mm_i["main"] = vcat( mm_i["main"], i )
+            end
+        end
+    else
+        error("Unknown contition")
+    end
+    return mm_i
+end
+
+print("'mergermap_indices'   ")
+
+
+@doc """
+DESCRIPTION:\n
+    - Collect merger incidences with given ratio
+    INPUT:\n
+        - asmbly:       dictionary
+    OUTPUT:\n
+        - dictionary
+""" ->
+function merger_rates(asmly; 
+    min=-1, max=1e10, 
+    indices=" ", type="most massive",
+    verbose=true
+    )
+    if typeof(indices) == String
+        indices = mergermap_indices(asmly; condition="mergers")["main"]
+    end
+
+    incidences  = Dict{String, Vector{Union{Missing, Any}}}()
+    incidences["subID"]     = missings(Int64, 0)
+    incidences["lastID"]    = missings(Int64, 0)
+    incidences["snapNR"]    = missings(Int64, 0)
+    incidences["ratio"]     = missings(Float64, 0)
+    if type == "most massive"
+        for i in indices
+            # select merger ratios
+            temp_ratio  = asmly["Merger_Map"][4,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["Merger_Map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])] / asmly["Merger_Map"][2,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["Merger_Map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])]
+            if min < temp_ratio < max
+                incidences["subID"]     = vcat( incidences["subID"]     , asmly["I_SUB"][i] )
+                incidences["snapNR"]    = vcat( incidences["snapNR"]    , asmly["SNAP"][i] )
+                incidences["lastID"]    = vcat( incidences["lastID"]    , asmly["ID_ISUB"][i] )
+                incidences["ratio"]     = vcat( incidences["ratio"]     , temp_ratio )
+                if verbose
+                    println("Halo $(asmly["I_SUB"][i])  =  $(asmly["ID_ISUB"][i]) @ Snap $(asmly["SNAP"][i])   ---   Ratio $temp_ratio")
+                end
+            end
+        end
+    else
+        error("Unknown Type")
+    end
+    return incidences
+end
+
+print("'merger_rates'   ")
 
 
 println()

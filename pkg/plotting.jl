@@ -14,7 +14,7 @@ INPUT:\n
     -- subID:       subhalo ID, dont ever use this one!
     -- lastID:      subID in the last snapshot
     -- felixID:     felix ID to quickly find the right group
-    -- box:         path to simulation box
+    -- simbox:         path to simulation box
     -- res:         plot resolution (m, n)
     -- rad:         radius for surrounding medium from GadgetIO in kpc
     -- ptsize:      size of scatterplot particles
@@ -26,7 +26,7 @@ OUTPUT:\n
     - scene:    plot
 """ ->
 function plot_group( snapNR; 
-    box="/HydroSims/Magneticum/Box4/uhr_test", res=(1600,900), felixID="", subID="", lastID="", 
+    simbox="/HydroSims/Magneticum/Box4/uhr_test", res=(1600,900), felixID="", subID="", lastID="", 
     property = "pos",
     rad=200, ptsize=3000, arsize=4., port=1688, stepsize=1)
     JSServe.configure_server!(listen_port=port, forwarded_port=port)
@@ -43,9 +43,7 @@ function plot_group( snapNR;
 
 
     ### Data processing
-    snapshot    = Snapshot(box, snapNR)
-    snapshot.snapbase
-    snapshot.subbase
+    snapshot    = Snapshot(simbox, snapNR)
     galaxies        = Dict{Int64, Any}()
     particleID_list = Array{UInt64}(undef,0)
     for i in 1:length(galaxyID_list)
@@ -60,8 +58,8 @@ function plot_group( snapNR;
         #read_halo!(galaxies[i], units=:physical, props=((:dm, ["POS", "VEL"]),), radius_units=:physical, radius=rvir_group)
     end
     # all particles
-    head        = read_header("$box/groups_$(@sprintf("%03i", snapNR))/sub_$(@sprintf("%03i", snapNR))")
-    filepath    = "$box/snapdir_$(@sprintf("%03i", snapNR))/snap_$(@sprintf("%03i", snapNR))"
+    head        = read_header("$simbox/groups_$(@sprintf("%03i", snapNR))/sub_$(@sprintf("%03i", snapNR))")
+    filepath    = "$simbox/snapdir_$(@sprintf("%03i", snapNR))/snap_$(@sprintf("%03i", snapNR))"
     blocks      = ["MASS", "POS", "ID", "VEL"]
     radius      = rad * ( read_galaxy_pos(galaxies[1], :sim) ./ read_galaxy_pos(galaxies[1], :physical) )[1] # conversion into simulation units, mean is for 
     position    = read_galaxy_pos(galaxies[1], :sim)
@@ -188,6 +186,11 @@ function plot_group( snapNR;
 end
 
 print("'plot_group'   ")
+
+
+
+include("/home/moon/sfortune/spinevo/pkg/plot_group_direct.jl")
+
 
 
 println()

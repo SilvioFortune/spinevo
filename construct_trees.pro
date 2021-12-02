@@ -16,7 +16,7 @@ READCOLRHEA,file,nrsub,nrsubf,r_half_3d,r_half_2d,eps,eps_edge_on,l_r,l_r_edge_o
 ; loop over all followed halos
 ; ----------------------------
 
-FOR j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
+FOR j=18, 18 DO BEGIN ;j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
 
     i_sub=nrsubf(j)
     str=STRTRIM(string(j),2)
@@ -26,7 +26,7 @@ FOR j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_E
 	; open file for writing
 	; ---------------------
 
-	OPENW, lun, '/home/moon/sfortune/spinevo/newtrees/halo_'+str+'.dat', /GET_LUN
+	OPENW, lun, '/home/moon/sfortune/spinevo/newtrees_test/halo_'+str+'.dat', /GET_LUN
 	printf,lun,format='("Most Massive Progenitor+All other Progenitors, Masses are at snap of max stellar mass for next Progenitors and gas mass from particles, First Progenitor mass is 2 snaps before identificationi")'
 	printf,lun,format='(12(A14,2x))','SNAP','I_SUB','I_TREE','FILE_NR','REDSHIFT','M_STARS','M_STAR_2','M_GAS','M_GAS_2','M_DM','M_DM_2','MMP';,'X','Y','Z','VX','VY','VZ','MEAN_*_AGE','MEAN_METAL','M_STAR_TR','M_GAS_TR','M_DM_TR'
 
@@ -96,6 +96,7 @@ FOR j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_E
 		ENDWHILE                                                                     
 		
 		; check whether halo jumps unreasonably (probably not needed for the new trees)
+		; silvio: implementing Klaus' suggestion to switch back to central halo after switching to small subhalo
 
 		x_old=t_haloes[i_tree].pos
 
@@ -106,8 +107,19 @@ FOR j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_E
 		r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
 
 		IF(r_dif GT 200.) THEN BEGIN
-			print,'Tree is broken: TERMINATE!'
-			BREAK
+			IF(i_tree NE t_haloes[i_tree].FIRSTHALOINFOFGROUP) THEN BEGIN
+         		print,'Switching to main of FoF !'
+				i_tree = t_haloes[i_tree].FIRSTHALOINFOFGROUP
+				x_new=t_haloes[i_tree].pos
+				r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
+				IF(r_dif GT 200.) THEN BEGIN
+					print,'Tree is broken even after switch: Offset > ',r_dif,': TERMINATE!'
+					BREAK
+				ENDIF
+			ENDIF ELSE BEGIN
+				print,'Tree is broken. Not a switch case. Offset > ',r_dif,': TERMINATE!'
+				BREAK
+			ENDELSE
 		ENDIF
 
 	ENDWHILE                                                                                                 		
@@ -242,7 +254,7 @@ WHILE(i_fp GT 0) DO BEGIN
 		read_halo_sim,snap_name,sub_name,i_sub,100.,id_s,x_stars,v_stars,m_stars,age_stars,Zs,iM,x_gas,v_gas,m_gas,gas_temp,sfr_gas,Zs_gas,x_dm,v_dm,gas_def,/cut_sub
 ;		plot,x_stars[0,*],x_stars[2,*],psym=1,symsize=0.1
 
-		rr = sqrt(x_stars[0,*]^2+x_stars[1,*]^2+x_stars[2,*]^2)
+		rr = sqrt( x_stars[0,*]^2+x_stars[1,*]^2+x_stars[2,*]^2 )
 		kk = WHERE(rr LT 5.)
 		m_s = total(m_stars(kk))
 
