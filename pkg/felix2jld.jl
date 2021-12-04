@@ -6,7 +6,7 @@ OUTPUT:\n
 """ ->
 function felix2jld(; start=" ", stop=" ", min_time=0.0, 
     outdir="./OUT_felix2jdl", indir="/home/moon/sfortune/spinevo/newtrees", 
-    simbox="/HydroSims/Magneticum/Box4/uhr_test", verbose=true)
+    simbox="/HydroSims/Magneticum/Box4/uhr_test", iterstep=1, verbose=true)
     # Setup
     halofiles   = readdir(indir)
     if typeof(start)==String
@@ -20,7 +20,7 @@ function felix2jld(; start=" ", stop=" ", min_time=0.0,
         flush(stdout)
     end
     # Main
-    for iii in start:stop
+    for iii in start:iterstep:stop
         treefile_df = CSV.read(joinpath(indir, halofiles[iii]), DataFrame; delim=' ', ignorerepeated=true, header=2)
         halo_story = Dict(
             "ID"        => parse(Int64, chop(halofiles[iii], head=5, tail=4)), 

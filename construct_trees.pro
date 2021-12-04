@@ -15,18 +15,19 @@ READCOLRHEA,file,nrsub,nrsubf,r_half_3d,r_half_2d,eps,eps_edge_on,l_r,l_r_edge_o
 
 ; loop over all followed halos
 ; ----------------------------
-
-FOR j=18, 18 DO BEGIN ;j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
+loop_start = 499 ;0
+loop_stop  = 465 ;N_ELEMENTS(nrsubf)-1
+FOR j=loop_start, loop_stop,-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
 
     i_sub=nrsubf(j)
     str=STRTRIM(string(j),2)
 
-	print,'HALO: ',j, 'OF ', N_ELEMENTS(nrsubf)
+	print,'HALO: ',j, '	OF	', loop_stop
 	
 	; open file for writing
 	; ---------------------
 
-	OPENW, lun, '/home/moon/sfortune/spinevo/newtrees_test/halo_'+str+'.dat', /GET_LUN
+	OPENW, lun, '/home/moon/sfortune/spinevo/newtrees/halo_'+str+'.dat', /GET_LUN
 	printf,lun,format='("Most Massive Progenitor+All other Progenitors, Masses are at snap of max stellar mass for next Progenitors and gas mass from particles, First Progenitor mass is 2 snaps before identificationi")'
 	printf,lun,format='(12(A14,2x))','SNAP','I_SUB','I_TREE','FILE_NR','REDSHIFT','M_STARS','M_STAR_2','M_GAS','M_GAS_2','M_DM','M_DM_2','MMP';,'X','Y','Z','VX','VY','VZ','MEAN_*_AGE','MEAN_METAL','M_STAR_TR','M_GAS_TR','M_DM_TR'
 
@@ -113,11 +114,11 @@ FOR j=18, 18 DO BEGIN ;j=0, N_ELEMENTS(nrsubf)-1 DO BEGIN  ; 99, 199, 299, 399, 
 				x_new=t_haloes[i_tree].pos
 				r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
 				IF(r_dif GT 200.) THEN BEGIN
-					print,'Tree is broken even after switch: Offset > ',r_dif,': TERMINATE!'
+					print,'Tree is broken even after switch:	Offset > ',r_dif,':	TERMINATE!'
 					BREAK
 				ENDIF
 			ENDIF ELSE BEGIN
-				print,'Tree is broken. Not a switch case. Offset > ',r_dif,': TERMINATE!'
+				print,'Tree is broken. Not a switch case.	Offset > ',r_dif,':	TERMINATE!'
 				BREAK
 			ENDELSE
 		ENDIF

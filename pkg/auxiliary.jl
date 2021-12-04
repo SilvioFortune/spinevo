@@ -295,9 +295,9 @@ INPUT:\n
 OUTPUT:\n
     - dictionary
 """ ->
-function mergermap_indices(asmly; 
+function filter(asmly; 
     condition="mergers", mtype=2,
-    min=-1, max=1e16
+    min=-1, max=1e16, snap=136
     )
     mm_i    = Dict{String, Vector{Union{Missing, Int64}}}()
     mm_i["main"]            = missings(Int64, 0)
@@ -316,6 +316,12 @@ function mergermap_indices(asmly;
     elseif condition == "mass diff" 
         for i in 1:length(asmly["SNAP"])
             if !ismissing(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i]) && min < abs(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i])/asmly[ifelse(mtype==1,"M_felix","M2_felix")][i] < max # mass change
+                mm_i["main"] = vcat( mm_i["main"], i )
+            end
+        end
+    elseif condition == "snap" 
+        for i in 1:length(asmly["SNAP"])
+            if asmly["SNAP"][i] == snap
                 mm_i["main"] = vcat( mm_i["main"], i )
             end
         end
@@ -371,6 +377,39 @@ function merger_rates(asmly;
 end
 
 print("'merger_rates'   ")
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function find_halo_file(; indir="/home/moon/sfortune/spinevo/halostories_v20211204_min0.0Gyr"
+    , felixID=" ", lastID=" "
+    )
+
+    storyfilelist   = readdir(indir)
+    halo_filestring = " "
+    if typeof(felixID)==Int  # simple case since tree is provided
+        for i in 1:length(storyfilelist)
+            if occursin("halo_$(felixID)_", storyfilelist[i])
+                println(storyfilelist[i])
+                return storyfilelist[i]
+            end
+        end
+    elseif typeof(lastID)==Int  # simple case since tree is provided
+        for i in 1:length(storyfilelist)
+            if occursin("_$(lastID).jld", storyfilelist[i])
+                println(storyfilelist[i])
+                return storyfilelist[i]
+            end
+        end
+    else
+        error("Either felixID or lastID has to be provided.")
+    end
+end
+
+print("'find_halo_file'   ")
 
 
 println()
