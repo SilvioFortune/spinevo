@@ -136,14 +136,14 @@ OUTPUT:\n
     - isub:             Int; halo ID according to Felix' notation
     - halo_filestring:  String; jld filename of that halo
 """ ->
-function find_felixID(isub; dir="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr")
+function find_felixID(rootID; dir=current_dir_stories)
     storyfilelist   = readdir(dir)
     halo_filestring = " "
     ifelix          = Int64
     for i in 1:length(storyfilelist)
-        if occursin("_$(isub).jld", storyfilelist[i])
+        if occursin("_$(rootID).jld", storyfilelist[i])
             halo_filestring = storyfilelist[i]
-            ifelix          = parse( Int64, chop(replace(halo_filestring, "_$(isub)." => "_." ), head=5,tail=5) )
+            ifelix          = parse( Int64, chop(replace(halo_filestring, "_$(rootID)." => "_." ), head=5,tail=5) )
         end
     end
     return ifelix, halo_filestring
@@ -162,14 +162,14 @@ OUTPUT:\n
     - isub:             Int64; sub ID in the final snap shot
     - halo_filestring:  String; jld filename of that halo
 """ ->
-function find_lastID(ifelix; dir="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr")
+function find_rootID(felixID; dir=current_dir_stories)
     storyfilelist   = readdir(dir)
     halo_filestring = " "
     isub            = Int64
     for i in 1:length(storyfilelist)
-        if occursin("halo_$(ifelix)_", storyfilelist[i])
+        if occursin("halo_$(felixID)_", storyfilelist[i])
             halo_filestring = storyfilelist[i]
-            isub            = parse( Int64, chop( replace( halo_filestring, "_$(ifelix)_" => "__" ), head=6,tail=4 ) )
+            isub            = parse( Int64, chop( replace( halo_filestring, "_$(felixID)_" => "__" ), head=6,tail=4 ) )
         end
     end
     return isub, halo_filestring
@@ -190,7 +190,7 @@ OUTPUT:\n
 function ssFPfinder(mID, halsto)
     result_ID = Int64
     for finder_ID in mID:-1:2    # walking the array towards the first progenitor
-        if halsto["SNAP"][finder_ID] < halsto["SNAP"][finder_ID-1]
+        if halsto["snapFP"][finder_ID] < halsto["snapFP"][finder_ID-1]
             result_ID   = finder_ID
             break
         end
@@ -230,10 +230,10 @@ OUTPUT:\n
     - rotmat:   rotation matrix to align x with ref
 """ ->
 function aligner(x; ref=[0,0,1])
-    normalize!(x)
-    normalize!(ref)
-    vx      = x × ref
-    cx      = transpose(x) * ref
+    nx=normalize(x)
+    nref=normalize(nref)
+    vx      = nx × nref
+    cx      = transpose(nx) * nref
     Vx      = [0 -vx[3] vx[2]; vx[3] 0 -vx[1]; -vx[2] vx[1] 0]
     return I + Vx + (Vx * Vx ./ (1+cx))
 end
@@ -241,17 +241,17 @@ end
 print("'aligner'   ")
 
 
-function find_merging_progenitors(snapNR; felixID="", lastID="", subID="", 
-    path_to_halostories="/home/moon/sfortune/spinevo/halostories_v20211127_min0.0Gyr", check_ambiguity=false)
+function find_merging_progenitors(snapFP; felixID=" ", rootID=" ", subID=" ", 
+    path_to_halostories=current_dir_stories, check_ambiguity=false)
     #subIDlist = Array{Int64}(undef, 0)
     if typeof(felixID)==Int  # simple case since tree is provided
-        halo_story  = load(joinpath(path_to_halostories, "halo_$(felixID)_$(find_lastID(felixID; dir=path_to_halostories)[1]).jld"), "halo_story")
-        #subIDlist   = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
-        return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
-    elseif typeof(lastID)==Int  # simple case since tree is provided
-        halo_story  = load(joinpath(path_to_halostories, "halo_$(find_felixID(lastID; dir=path_to_halostories)[1])_$(lastID).jld"), "halo_story")
-        #subIDlist   = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
-        return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+        halo_story  = load(joinpath(path_to_halostories, "halo_$(felixID)_$(find_rootID(felixID; dir=path_to_halostories)[1]).jld"), "halo_story")
+        #subIDlist   = halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
+        return halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
+    elseif typeof(rootID)==Int  # simple case since tree is provided
+        halo_story  = load(joinpath(path_to_halostories, "halo_$(rootID).jld"), "halo_story")
+        #subIDlist   = halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
+        return halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
     elseif typeof(subID)==Int   # here we need to find the right tree first
         storyfilelist   = readdir(path_to_halostories)
         if check_ambiguity
@@ -259,11 +259,11 @@ function find_merging_progenitors(snapNR; felixID="", lastID="", subID="",
             for i in 1:length(storyfilelist)
                 print("$i ")
                 halo_story  = load(joinpath(path_to_halostories, storyfilelist[i]), "halo_story")
-                if length(findall(x->x.==subID, halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])])) > 0
+                if length(findall(x->x.==subID, halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])])) > 0
                     if length(subIDlist) == 0
-                        subIDlist = halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+                        subIDlist = halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
                     else
-                        error("Combination of subID and snapNR is ambiguous.")
+                        error("Combination of subID and snapFP is ambiguous.")
                     end
                 end
             end
@@ -272,14 +272,14 @@ function find_merging_progenitors(snapNR; felixID="", lastID="", subID="",
             for i in 1:length(storyfilelist)
                 print("$i ")
                 halo_story  = load(joinpath(path_to_halostories, storyfilelist[i]), "halo_story")
-                if length(findall(x->x.==subID, halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])])) > 0
-                    return halo_story["I_SUB"][findall(x->x.==snapNR, halo_story["SNAP"])]
+                if length(findall(x->x.==subID, halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])])) > 0
+                    return halo_story["subID"][findall(x->x.==snapFP, halo_story["snapFP"])]
                     break
                 end
             end
         end
     else
-        error("Either felixID, subID or lastID has to be provided.")
+        error("Either felixID, subID or rootID has to be provided.")
     end
 end
 
@@ -295,9 +295,10 @@ INPUT:\n
 OUTPUT:\n
     - dictionary
 """ ->
-function filter(asmly; 
-    condition="mergers", mtype=2,
-    min=-1, max=1e16, snap=136
+function mergermap_indices(asmly; 
+    condition="mergers"
+    , min=-1, max=1e16
+    , mtype=convert_parttype_to_idx(str="stars"), snap=136,
     )
     mm_i    = Dict{String, Vector{Union{Missing, Int64}}}()
     mm_i["main"]            = missings(Int64, 0)
@@ -305,23 +306,24 @@ function filter(asmly;
         mm_i["most_massive"]    = missings(Int64, 0)
         mm_i["last"]            = missings(Int64, 0)
         mm_i["first"]           = missings(Int64, 0)
-        for i in 1:length(asmly["SNAP"])
-            if sum( asmly["Merger_Map"][2, 1+sum(asmly["N_MERGERS"][1:i-1]) : sum(asmly["N_MERGERS"][1:i])] ) > 0. # is there a merger?
-                mm_i["most_massive"]    = vcat( mm_i["most_massive"], sum(asmly["N_MERGERS"][1:i-1]) + argmax( asmly["Merger_Map"][mtype,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])] ) )
+        for i in 1:length(asmly["snapNR"])
+            #if sum( asmly["merger map"][2, 1+sum(asmly["N_MERGERS"][1:i-1]) : sum(asmly["N_MERGERS"][1:i])] ) > 0. # is there a merger?
+            if asmly["N_MERGERS"][i] > 0 # is there a merger?
+                mm_i["most_massive"]    = vcat( mm_i["most_massive"], sum(asmly["N_MERGERS"][1:i-1]) + argmax( asmly["merger map"][mtype,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])] ) )
                 mm_i["main"] = vcat( mm_i["main"], i )
                 mm_i["last"] = vcat( mm_i["last"], sum(asmly["N_MERGERS"][1:i]) )
                 mm_i["first"] = vcat( mm_i["first"], sum(asmly["N_MERGERS"][1:i-1]) + 1 )
             end
         end
     elseif condition == "mass diff" 
-        for i in 1:length(asmly["SNAP"])
-            if !ismissing(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i]) && min < abs(asmly[string("δ",ifelse(mtype==1,"M_felix","M2_felix"))][i])/asmly[ifelse(mtype==1,"M_felix","M2_felix")][i] < max # mass change
+        for i in 1:length(asmly["snapNR"])
+            if !ismissing(asmly[string("Δ",ifelse(mtype==1,"M","M2"))][i]) && min < abs(asmly[string("Δ",ifelse(mtype==1,"M","M2"))][i])/asmly[ifelse(mtype==1,"M_felix","M2_felix")][i] < max # mass change
                 mm_i["main"] = vcat( mm_i["main"], i )
             end
         end
     elseif condition == "snap" 
-        for i in 1:length(asmly["SNAP"])
-            if asmly["SNAP"][i] == snap
+        for i in 1:length(asmly["snapNR"])
+            if asmly["snapNR"][i] == snap
                 mm_i["main"] = vcat( mm_i["main"], i )
             end
         end
@@ -353,20 +355,20 @@ function merger_rates(asmly;
 
     incidences  = Dict{String, Vector{Union{Missing, Any}}}()
     incidences["subID"]     = missings(Int64, 0)
-    incidences["lastID"]    = missings(Int64, 0)
+    incidences["rootID"]    = missings(Int64, 0)
     incidences["snapNR"]    = missings(Int64, 0)
     incidences["ratio"]     = missings(Float64, 0)
     if type == "most massive"
         for i in indices
             # select merger ratios
-            temp_ratio  = asmly["Merger_Map"][4,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["Merger_Map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])] / asmly["Merger_Map"][2,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["Merger_Map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])]
+            temp_ratio  = asmly["merger map"][4,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["merger map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])] / asmly["merger map"][2,sum(asmly["N_MERGERS"][1:i-1])+argmax(asmly["merger map"][2,1+sum(asmly["N_MERGERS"][1:i-1]):sum(asmly["N_MERGERS"][1:i])])]
             if min < temp_ratio < max
-                incidences["subID"]     = vcat( incidences["subID"]     , asmly["I_SUB"][i] )
-                incidences["snapNR"]    = vcat( incidences["snapNR"]    , asmly["SNAP"][i] )
-                incidences["lastID"]    = vcat( incidences["lastID"]    , asmly["ID_ISUB"][i] )
+                incidences["subID"]     = vcat( incidences["subID"]     , asmly["subID"][i] )
+                incidences["snapNR"]    = vcat( incidences["snapNR"]    , asmly["snapNR"][i] )
+                incidences["rootID"]    = vcat( incidences["rootID"]    , asmly["ID_ISUB"][i] )
                 incidences["ratio"]     = vcat( incidences["ratio"]     , temp_ratio )
                 if verbose
-                    println("Halo $(asmly["I_SUB"][i])  =  $(asmly["ID_ISUB"][i]) @ Snap $(asmly["SNAP"][i])   ---   Ratio $temp_ratio")
+                    println("Halo $(asmly["subID"][i])  =  $(asmly["ID_ISUB"][i]) @ Snap $(asmly["snapNR"][i])   ---   Ratio $temp_ratio")
                 end
             end
         end
@@ -384,8 +386,8 @@ DESCRIPTION:\n
     INPUT:\n
     OUTPUT:\n
 """ ->
-function find_halo_file(; indir="/home/moon/sfortune/spinevo/halostories_v20211204_min0.0Gyr"
-    , felixID=" ", lastID=" "
+function find_halo_file(; indir=current_dir_stories
+    , felixID=" ", rootID=" "
     )
 
     storyfilelist   = readdir(indir)
@@ -397,19 +399,331 @@ function find_halo_file(; indir="/home/moon/sfortune/spinevo/halostories_v202112
                 return storyfilelist[i]
             end
         end
-    elseif typeof(lastID)==Int  # simple case since tree is provided
+    elseif typeof(rootID)==Int  # simple case since tree is provided
         for i in 1:length(storyfilelist)
-            if occursin("_$(lastID).jld", storyfilelist[i])
+            if occursin("_$(rootID).jld", storyfilelist[i])
                 println(storyfilelist[i])
                 return storyfilelist[i]
             end
         end
     else
-        error("Either felixID or lastID has to be provided.")
+        error("Either felixID or rootID has to be provided.")
     end
 end
 
 print("'find_halo_file'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function pyplottable(arr; 
+                    calc_norm=true, 
+                    )
+    if sum(size(arr)) == sum(size(arr[:]))+1 # 2d array thats actually 1d
+        return replace(replace(replace(arr[:], missing => NaN), Inf => NaN), -Inf => NaN)
+    elseif length(arr) > sum(size(arr)) && calc_norm # 2d array to be normalized
+        return norm.( eachcol( replace(replace(replace(arr, missing => NaN), Inf => NaN), -Inf => NaN) ) )
+    else
+        return replace(replace(replace(arr, missing => NaN), Inf => NaN), -Inf => NaN)
+    end
+end
+
+print("'pyplottable'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function findcs(arr;
+                    eq=" ", gt=" ", lt=" ", geq=" ", leq=" ",
+                    calc_norm=true,
+                    comparewith=" "
+                    )
+    if gt != " " && lt != " "
+        found =  findall(x-> gt .< x .< lt, pyplottable(arr,calc_norm=calc_norm))
+    elseif eq === missing
+        found =  findall(x-> x .=== eq, arr)
+    elseif eq === NaN
+        found =  findall(x-> x .=== eq, arr)
+    elseif eq != " "
+        found =  findall(x-> x .== eq, pyplottable(arr,calc_norm=calc_norm))
+    elseif geq != " " && leq != " "
+        found =  findall(x-> geq .<= x .<= leq, pyplottable(arr,calc_norm=calc_norm))
+    elseif geq != " " && lt != " "
+        found =  findall(x-> geq .<= x .< lt, pyplottable(arr,calc_norm=calc_norm))
+    elseif gt != " " && leq != " "
+        found =  findall(x-> gt .< x .<= leq, pyplottable(arr,calc_norm=calc_norm))
+    elseif gt != " "
+        found =  findall(x-> x .> gt, pyplottable(arr,calc_norm=calc_norm))
+    elseif lt != " "
+        found =  findall(x-> x .< lt, pyplottable(arr,calc_norm=calc_norm))
+    elseif geq != " "
+        found =  findall(x-> x .>= geq, pyplottable(arr,calc_norm=calc_norm))
+    elseif leq != " "
+        found =  findall(x-> x .<= leq, pyplottable(arr,calc_norm=calc_norm))
+    else
+        found = findall(x-> x .== 1, pyplottable(arr,calc_norm=calc_norm))
+    end
+
+    if comparewith == " "
+        return found
+    else
+        return found[found .∈ Ref(Set(comparewith))]
+    end
+end
+
+print("'findcs'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function idxmatch(arr1, arr2)
+    return arr1[ arr1 .∈ Ref(Set(arr2 ))]
+end
+
+print("'idxmatch'   ")
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function idxclude(arr1, arr2)
+    return arr1[ arr1 .∉ Ref(Set(arr2 ))]
+end
+
+print("'idxclude'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function pctl68upper(x)
+    return StatsBase.percentile(x,168.27/2)
+end
+
+print("'pctl68upper'   ")
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function pctl68lower(x)
+    return StatsBase.percentile(x,(100-68.27)/2)
+end
+
+print("'pctl68lower'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n 
+        - Use as @Name(arg)
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+macro Name(arg)
+    string(arg)
+ end
+
+print("'Name'   ")
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function convert_parttype_to_idx(;str=" ", sym=:default)
+    if lowercase(str) == "stars" || sym == :stars
+        return 5
+    elseif lowercase(str) == "gas" || sym == :gas
+        return 1
+    elseif lowercase(str) == "dm" || sym == :dm
+        return 2
+    else
+        error("Unknown particle type: $str or $sym ")
+    end
+end
+
+print("'convert_parttype_to_idx'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n sfc: WIP
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function running_stats(x,y;
+                        resolution=50, width=(maximum(x)-minimum(x))/resolution
+                        )
+                        
+end
+
+print("'running_stats'   ")
+
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n sfc: WIP
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function export_halostories_to_csv(;
+    story_dir = current_dir_stories, outdir="./TEMP_csv",
+    rootID_list = " ", 
+    )
+
+    # Select Halos to export
+    storyfilelist   = readdir(story_dir)
+    if rootID_list == " "
+        list_idx    = Vector{Int64}(undef, 0)
+        for i in 1:length(storyfilelist)
+            if occursin(".jld", storyfilelist[i])
+                list_idx    = vcat( list_idx,   i   )
+            end
+        end
+        storyfilelist   = storyfilelist[list_idx]
+    else
+        list_idx    = Vector{Int64}(undef, 0)
+        for i in 1:length(storyfilelist)
+            for ii in 1:length(rootID_list)
+                #if occursin("$(rootID_list[ii]).jld", storyfilelist[i])
+                if "halo_$(rootID_list[ii]).jld" == storyfilelist[i]
+                    list_idx    = vcat( list_idx,   i   )
+                end
+            end
+        end
+        storyfilelist   = storyfilelist[list_idx]
+    end
+
+    # Exort loop
+    for i in storyfilelist
+        println("   Writing $i")
+        flush(stdout)
+        halo_story = load(joinpath(story_dir, i), "halo_story")
+        #CSV.write( joinpath(outdir, replace(i, ".jld" => ".csv" )), CSV.RowWriter(halo_story, delim=" ") )
+        #fid    = XLSX.openxlsx( joinpath(outdir, replace(i, ".jld" => ".xlsx" )), mode="w" )
+        #header = ["keys";"values"]
+        #data   = [[collect(keys(halo_story))];[collect(values(halo_story))]]
+        #XLSX.writetable(joinpath(outdir, replace(i, ".jld" => ".xlsx" )), data,header)
+
+        # Create DataFrame
+        df_halo_story
+        for ii in keys(halo_story)
+            
+        end
+    end
+
+    println("\n\n\n---------------------------\n\nNow witness the firepower of this fully armed and operational battle station!\n---------------------------\n\n")
+    return nothing
+end
+
+print("'export_halostories_to_csv'   ")
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function find_mintime_idx(  lbt_array   , idx_array , idx   , mintime   ,
+    )
+    for i in idx:-1:1
+        if lbt_array[idx_array[i]] - lbt_array[idx_array[idx]] > mintime
+            #println("found $(idx_array[i]) with $(lbt_array[idx_array[i]] - lbt_array[idx_array[idx]]) Gyr")
+            return idx_array[i]
+            break
+        end
+        if i == 1
+            #println("nothing found")
+            return idx_array[idx]
+        end
+    end
+end
+
+
+print("'find_mintime_idx'   ")
+
+
+
+
+
+
+@doc """
+DESCRIPTION:\n
+- only defined for abs(x) ≥ 1
+    INPUT:\n
+    OUTPUT:\n
+""" ->
+function symlog10(x)
+    if !ismissing(x) && !isnan(x)
+        if x ≥ 1
+            return log10(x)
+        elseif x ≤ -1
+            return -log10(abs(x))
+        else
+            return missing
+        end
+    else
+        return missing
+    end
+end
+
+
+print("'symlog10'   ")
 
 
 println()

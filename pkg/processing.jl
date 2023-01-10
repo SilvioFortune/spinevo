@@ -85,8 +85,199 @@ end
 
 print("'reduce_n_particles'   ")
 
+
+
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+
+
+
+@doc """
+DESCRIPTION:\n
+INPUT:\n
+OUTPUT:\n
+""" ->
+function fake_flip_finder(indict, idx; verbose=false)
+    flip1 = 3
+    if 1 < idx < length(indict["M"]) && 
+    count(ismissing, indict["j_main"][:,idx-1]) + count(ismissing, indict["j_main"][:,idx]) + 
+    count(ismissing, indict["j_main"][:,idx+1]) == 0 # can be checked
+        flip1 = ifelse( norm(indict["j_main"][:,idx+1]-indict["j_main"][:,idx-1]) < norm(indict["j_main"][:,idx]-indict["j_main"][:,idx-1]) && # && indict["M"][idx+1]-indict["M"][idx-1] < indict["M"][idx]-indict["M"][idx-1], 
+                        norm(indict["j_main"][:,idx+1]-indict["j_main"][:,idx-1]) < norm(indict["j_main"][:,idx+1]-indict["j_main"][:,idx]),
+                        1, 0 
+                        )
+    end
+
+    flip2 = 3
+    if 2 < idx && 
+    count(ismissing, indict["j_main"][:,idx-2]) + count(ismissing, indict["j_main"][:,idx-1]) + 
+    count(ismissing, indict["j_main"][:,idx]) == 0 # can be checked
+        flip2 = ifelse( norm(indict["j_main"][:,idx]-indict["j_main"][:,idx-2]) < norm(indict["j_main"][:,idx-1]-indict["j_main"][:,idx-2]) && # && indict["M"][idx]-indict["M"][idx-2] < indict["M"][idx-1]-indict["M"][idx-2], 
+                        norm(indict["j_main"][:,idx]-indict["j_main"][:,idx-2]) < norm(indict["j_main"][:,idx]-indict["j_main"][:,idx-1]),
+                        1, 0 
+                        )
+    end
+    if verbose
+        println("Snap $(indict["snapNR"][idx])   ---   in = $flip1, out = $flip2")
+    end
+
+    if flip1 + flip2 == 0 # both not fake
+        return 0
+    elseif flip1 + flip2 < 3 # any is fake
+        return 1
+    else
+        return missing
+    end
+end
+
+print("'fake_flip_finder'   ")
+
+
+
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+
+
+
 # Functions that are too long and have own file
-include("/home/moon/sfortune/spinevo/pkg/felix2jld.jl")
+include("/home/moon/sfortune/spinevo/pkg/tree2story.jl")
 include("/home/moon/sfortune/spinevo/pkg/assemble_halostories.jl")
+include("/home/moon/sfortune/spinevo/pkg/treewalker.jl")
+
+
+
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+
+
+
+@doc """
+DESCRIPTION:\n
+INPUT:\n
+OUTPUT:\n
+""" ->
+function quickadd_feature(type; target=" ", 
+                                simbox=current_dir_simbox,
+                                verbose=true,
+                                min_time=0.0,
+                                )
+    if type == "hs"
+        storyfilelist   = readdir(target)
+        count = 0
+        for i in storyfilelist
+            count += 1
+            halo_story = load(joinpath(target, i), "halo_story")
+            if verbose
+                print("$count-$(halo_story["rootID"])", ifelse(count % 30 == 0, "\n", " "))
+                flush(stdout)
+            end
+            merger_collection_STARS = load(joinpath(target, i), "merger_collection_STARS")
+            merger_collection_GAS   = load(joinpath(target, i), "merger_collection_GAS")
+            merger_collection_DM    = load(joinpath(target, i), "merger_collection_DM")
+            #halo_story["J_DM_0"                     ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["j_DM_0"                     ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["J_GAS_0"                    ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["j_GAS_0"                    ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["J_GASvir_0"                 ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["j_GASvir_0"                 ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["J_STARS_0"                  ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["j_STARS_0"                  ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["J_STARSvir_0"               ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["j_STARSvir_0"               ] = missings(Float64, 3, length(halo_story["subID"]))
+            #halo_story["merger_spin_map_STARS_0"    ] = missings(Float64, 18, length(halo_story["subID"]))
+            #halo_story["merger_spin_map_GAS_0"      ] = missings(Float64, 18, length(halo_story["subID"]))
+            #halo_story["merger_spin_map_DM_0"       ] = missings(Float64, 18, length(halo_story["subID"]))
+            halo_story["J_DM_0"                     ] = deepcopy(halo_story["J_DM"                     ])
+            halo_story["j_DM_0"                     ] = deepcopy(halo_story["j_DM"                     ])
+            halo_story["J_GAS_0"                    ] = deepcopy(halo_story["J_GAS"                    ])
+            halo_story["j_GAS_0"                    ] = deepcopy(halo_story["j_GAS"                    ])
+            halo_story["J_GASvir_0"                 ] = deepcopy(halo_story["J_GASvir"                 ])
+            halo_story["j_GASvir_0"                 ] = deepcopy(halo_story["j_GASvir"                 ])
+            halo_story["J_STARS_0"                  ] = deepcopy(halo_story["J_STARS"                  ])
+            halo_story["j_STARS_0"                  ] = deepcopy(halo_story["j_STARS"                  ])
+            halo_story["J_STARSvir_0"               ] = deepcopy(halo_story["J_STARSvir"               ])
+            halo_story["j_STARSvir_0"               ] = deepcopy(halo_story["j_STARSvir"               ])
+            halo_story["merger_spin_map_STARS_0"    ] = deepcopy(halo_story["merger_spin_map_STARS"    ])
+            halo_story["merger_spin_map_GAS_0"      ] = deepcopy(halo_story["merger_spin_map_GAS"      ])
+            halo_story["merger_spin_map_DM_0"       ] = deepcopy(halo_story["merger_spin_map_DM"       ])
+
+            for ii in 1:length(halo_story["subID"])
+                halo_story["J_DM_0"                     ][:,ii] = halo_story["J_DM_0"                     ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["j_DM_0"                     ][:,ii] = halo_story["j_DM_0"                     ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["J_GAS_0"                    ][:,ii] = halo_story["J_GAS_0"                    ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["j_GAS_0"                    ][:,ii] = halo_story["j_GAS_0"                    ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["J_GASvir_0"                 ][:,ii] = halo_story["J_GASvir_0"                 ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["j_GASvir_0"                 ][:,ii] = halo_story["j_GASvir_0"                 ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["J_STARS_0"                  ][:,ii] = halo_story["J_STARS_0"                  ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["j_STARS_0"                  ][:,ii] = halo_story["j_STARS_0"                  ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["J_STARSvir_0"               ][:,ii] = halo_story["J_STARSvir_0"               ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                halo_story["j_STARSvir_0"               ][:,ii] = halo_story["j_STARSvir_0"               ][:,ii] .* (sqrt(1 + halo_story["redshift"][ii]))
+                # immediate
+                if !ismissing(halo_story["merger_spin_map_STARS_0"    ][1,ii])
+                    halo_story["merger_spin_map_STARS_0"    ][4:9,ii] = halo_story["merger_spin_map_STARS_0"    ][4:9,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))").z))
+                    halo_story["merger_spin_map_GAS_0"      ][4:9,ii] = halo_story["merger_spin_map_GAS_0"      ][4:9,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))").z))
+                    halo_story["merger_spin_map_DM_0"       ][4:9,ii] = halo_story["merger_spin_map_DM_0"       ][4:9,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][1,ii]), 3, "0"))").z))
+                end
+                # earlier
+                if !ismissing(halo_story["merger_spin_map_STARS_0"    ][10,ii])
+                    halo_story["merger_spin_map_STARS_0"    ][13:18,ii] = halo_story["merger_spin_map_STARS_0"    ][13:18,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))").z))
+                    halo_story["merger_spin_map_GAS_0"      ][13:18,ii] = halo_story["merger_spin_map_GAS_0"      ][13:18,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))").z))
+                    halo_story["merger_spin_map_DM_0"       ][13:18,ii] = halo_story["merger_spin_map_DM_0"       ][13:18,ii] .* (sqrt(1 + read_header("$simbox/groups_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))/sub_$(lpad(Int(halo_story["merger_spin_map_STARS_0"    ][10,ii]), 3, "0"))").z))
+                end
+            end
+
+            merger_collection_STARS, merger_collection_GAS, merger_collection_DM = collect_mergers(halo_story, min_time=min_time)
+            save(joinpath(target, i), 
+                "halo_story",   halo_story,
+                "merger_collection_DM",     merger_collection_DM,
+                "merger_collection_GAS",    merger_collection_GAS,
+                "merger_collection_STARS",  merger_collection_STARS)
+        end
+    else
+        error("   Unknown target type:$type \n   Accepted types: hs\n")
+    end
+    if verbose
+        println("\n\n\n---------------------------\n\nNow witness the firepower of this fully armed and operational battle station!\n---------------------------\n\n")
+        flush(stdout)
+    end
+    return nothing
+end
+
+print("'quickadd_feature'   ")
+
+
+
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+########################################################################################################################################
+
+
 
 println()

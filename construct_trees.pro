@@ -15,116 +15,152 @@ READCOLRHEA,file,nrsub,nrsubf,r_half_3d,r_half_2d,eps,eps_edge_on,l_r,l_r_edge_o
 
 ; loop over all followed halos
 ; ----------------------------
-loop_start = 499 ;0
-loop_stop  = 465 ;N_ELEMENTS(nrsubf)-1
-FOR j=loop_start, loop_stop,-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_ELEMENTS(nrsubf)-1
+loop_start = 0 ;0
+loop_stop  = 49 ;N_ELEMENTS(nrsubf)-1
+FOR j=loop_start, loop_stop DO BEGIN  ; for backwards add ',-1' after loop_stop
 
     i_sub=nrsubf(j)
     str=STRTRIM(string(j),2)
-
-	print,'HALO: ',j, '	OF	', loop_stop
-	
-	; open file for writing
-	; ---------------------
-
-	OPENW, lun, '/home/moon/sfortune/spinevo/newtrees/halo_'+str+'.dat', /GET_LUN
-	printf,lun,format='("Most Massive Progenitor+All other Progenitors, Masses are at snap of max stellar mass for next Progenitors and gas mass from particles, First Progenitor mass is 2 snaps before identificationi")'
-	printf,lun,format='(12(A14,2x))','SNAP','I_SUB','I_TREE','FILE_NR','REDSHIFT','M_STARS','M_STAR_2','M_GAS','M_GAS_2','M_DM','M_DM_2','MMP';,'X','Y','Z','VX','VY','VZ','MEAN_*_AGE','MEAN_METAL','M_STAR_TR','M_GAS_TR','M_DM_TR'
-
 	find_halos_in_trees,i_sub,'136',0,t_haloes,i_tree			; find halo in trees at snap 136 simply matching positions
 
-	; loop over all first progenitors
-	; -------------------------------
 
-	count=0.
+	; central-only filter
+	IF(i_tree NE t_haloes[i_tree].FIRSTHALOINFOFGROUP) THEN BEGIN
+    	print, 'HALO: ',j, ' OF ', loop_stop, ' Not a Central: subID = ', i_sub
+	ENDIF ELSE BEGIN
+    	print, 'HALO: ',j, ' OF ', loop_stop, ' Central: subID = ', i_sub
+		; open file for writing
+		; ---------------------
 
-    WHILE(i_tree GE 0)  DO BEGIN
+		OPENW, lun, '/home/moon/sfortune/spinevo/data/newtrees_centrals_nobreak_physical/halo_'+str+'.dat', /GET_LUN
+		printf,lun,format='("Most Massive Progenitor+All other Progenitors, Masses are at snap of max stellar mass for next Progenitors and gas mass from particles, First Progenitor mass is 2 snaps before identificationi")'
+		printf,lun,format='(16(A14,2x))','SNAP','I_SUB','I_TREE','FILE_NR','REDSHIFT','M_STARS','M_STAR_2','M_GAS','M_GAS_2','M_DM','M_DM_2','MMP','SWITCH','BORDER','JUMP','EXCEED';,'X','Y','Z','VX','VY','VZ','MEAN_*_AGE','MEAN_METAL','M_STAR_TR','M_GAS_TR','M_DM_TR'
 
-		snap_fp=t_haloes[i_tree].SnapNum
-		file_nr_fp=t_haloes[i_tree].FileNr
-		i_sub_fp=t_haloes[i_tree].SubhaloIndex
 
-		str1=string(snap_fp,form='(i03)')
-		str2=STRTRIM(STRING(file_nr_fp),2)
-		sub_name='/HydroSims/Magneticum/Box4/uhr_test/groups_'+str1+'/sub_'+str1+'.'+str2	
-		readnew,sub_name,h,'HEAD'
-		z=h.redshift
-		HUBBLE=h.hubbleparam
 
-		print,snap_fp
+		; loop over all first progenitors
+		; -------------------------------
 
-		m_star_fp=t_haloes[i_tree].SubMassTab[4]
-		m_gas_fp=t_haloes[i_tree].SubMassTab[0]
-		m_dm_fp=t_haloes[i_tree].SubMassTab[1]
+		count=0.
+		fp_switch = 0
+		cross = 0
+		jump	= 0
+		exceed 	= 0
+		r_dif=0.
 
-		trace_back_first_prog,t_haloes,i_tree,m_star_fp_peak,m_gas_fp_peak,m_dm_fp_peak
+    	WHILE(i_tree GE 0)  DO BEGIN
 
-		; write quantities of first progenitor here
-		; -----------------------------------------
 
-		printf,lun,format='(12(A14,2x))',snap_fp,i_sub_fp,i_tree,file_nr_fp,z,FLOAT(m_star_fp),FLOAT(m_star_fp_peak),FLOAT(m_gas_fp),FLOAT(m_gas_fp_peak),FLOAT(m_dm_fp),FLOAT(m_dm_fp_peak),1.;,pos[0,i_sub_fp],pos[1,i_sub_fp],pos[2,i_sub_fp],vel[0,i_sub_fp],vel[1,i_sub_fp],vel[2,i_sub_fp],mean_stellar_age[i_sub_fp],mean_metal[i_sub_fp],FLOAT(m_star_fp_trace),FLOAT(m_gas_fp_trace),FLOAT(m_dm_fp_trace)
+			snap_fp=t_haloes[i_tree].SnapNum
+			snap_old = snap_fp ; save to detect loop end later
+			file_nr_fp=t_haloes[i_tree].FileNr
+			i_sub_fp=t_haloes[i_tree].SubhaloIndex
 
-		; loop over all progenitors
-		; -------------------------
+			str1=string(snap_fp,form='(i03)')
+			str2=STRTRIM(STRING(file_nr_fp),2)
+			sub_name='/HydroSims/Magneticum/Box4/uhr_test/groups_'+str1+'/sub_'+str1+'.'+str2	
+			readnew,sub_name,h,'HEAD'
+			z=h.redshift
+			HUBBLE=h.hubbleparam
 
-		i_np=t_haloes[i_tree].NextProgenitor
+			;print,snap_fp
 
-		WHILE(i_np GE 0) DO BEGIN
-			
-			snap_np=t_haloes[i_np].SnapNum
-			file_nr_np=t_haloes[i_np].FileNr
-			i_sub_np=t_haloes[i_np].SubhaloIndex
+			m_star_fp=t_haloes[i_tree].SubMassTab[4]
+			m_gas_fp=t_haloes[i_tree].SubMassTab[0]
+			m_dm_fp=t_haloes[i_tree].SubMassTab[1]
 
-                        IF(snap_np NE snap_fp) THEN snap_np=snap_fp
+			trace_back_first_prog,t_haloes,i_tree,m_star_fp_peak,m_gas_fp_peak,m_dm_fp_peak
 
-                        m_star_np=t_haloes[i_np].SubMassTab[4]
-                        m_gas_np=t_haloes[i_np].SubMassTab[0]
-                        m_dm_np=t_haloes[i_np].SubMassTab[1]
+			; write quantities of first progenitor here
+			; -----------------------------------------
 
-			IF(m_star_np GT 0.0140800) THEN BEGIN
+			printf,lun,format='(16(A14,2x))',snap_fp,i_sub_fp,i_tree,file_nr_fp,z,FLOAT(m_star_fp),FLOAT(m_star_fp_peak),FLOAT(m_gas_fp),FLOAT(m_gas_fp_peak),FLOAT(m_dm_fp),FLOAT(m_dm_fp_peak),1,fp_switch,cross,jump,exceed;,pos[0,i_sub_fp],pos[1,i_sub_fp],pos[2,i_sub_fp],vel[0,i_sub_fp],vel[1,i_sub_fp],vel[2,i_sub_fp],mean_stellar_age[i_sub_fp],mean_metal[i_sub_fp],FLOAT(m_star_fp_trace),FLOAT(m_gas_fp_trace),FLOAT(m_dm_fp_trace)
 
-				trace_back_prog,t_haloes,i_np,m_star_np_peak,m_gas_np_peak,m_dm_np_peak
-				
-				; write quantities of next progenitors here
-				; -----------------------------------------
+			; loop over all progenitors
+			; -------------------------
 
-				printf,lun,format='(12(A14,2x))',snap_np,i_sub_np,i_np,file_nr_np,z,FLOAT(m_star_np),FLOAT(m_star_np_peak),FLOAT(m_gas_np),FLOAT(m_gas_np_peak),FLOAT(m_dm_np),FLOAT(m_dm_np_peak),0.;,pos[0,i_sub_np],pos[1,i_sub_np],pos[2,i_sub_np],vel[0,i_sub_np],vel[1,i_sub_np],vel[2,i_sub_np];,mean_stellar_age[i_sub_np],mean_metal[i_sub_np]
+			i_np=t_haloes[i_tree].NextProgenitor
 
-			ENDIF	
+			WHILE(i_np GE 0) DO BEGIN
 
-			i_np=t_haloes[i_np].NextProgenitor	; set i_np to the index of the next progenitor
-			
-		ENDWHILE                                                                     
-		
-		; check whether halo jumps unreasonably (probably not needed for the new trees)
-		; silvio: implementing Klaus' suggestion to switch back to central halo after switching to small subhalo
+				snap_np=t_haloes[i_np].SnapNum
+				file_nr_np=t_haloes[i_np].FileNr
+				i_sub_np=t_haloes[i_np].SubhaloIndex
 
-		x_old=t_haloes[i_tree].pos
+    	                    IF(snap_np NE snap_fp) THEN snap_np=snap_fp
 
-		i_tree=t_haloes[i_tree].FirstProgenitor
+    	                    m_star_np=t_haloes[i_np].SubMassTab[4]
+    	                    m_gas_np=t_haloes[i_np].SubMassTab[0]
+    	                    m_dm_np=t_haloes[i_np].SubMassTab[1]
 
-		x_new=t_haloes[i_tree].pos
+				IF(m_star_np GT 0.0140800) THEN BEGIN
 
-		r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
+					trace_back_prog,t_haloes,i_np,m_star_np_peak,m_gas_np_peak,m_dm_np_peak
 
-		IF(r_dif GT 200.) THEN BEGIN
+					; write quantities of next progenitors here
+					; -----------------------------------------
+
+					printf,lun,format='(16(A14,2x))',snap_np,i_sub_np,i_np,file_nr_np,z,FLOAT(m_star_np),FLOAT(m_star_np_peak),FLOAT(m_gas_np),FLOAT(m_gas_np_peak),FLOAT(m_dm_np),FLOAT(m_dm_np_peak),0,fp_switch,cross,jump,exceed;,pos[0,i_sub_np],pos[1,i_sub_np],pos[2,i_sub_np],vel[0,i_sub_np],vel[1,i_sub_np],vel[2,i_sub_np];,mean_stellar_age[i_sub_np],mean_metal[i_sub_np]
+
+				ENDIF	
+
+				i_np=t_haloes[i_np].NextProgenitor	; set i_np to the index of the next progenitor
+
+			ENDWHILE                                                                     
+
+			; Stay with central halos
+			; v_old = t_haloes[i_tree].vel * (1+1.12*z) * 1.5   ; overestimate of next redshift with factor 1.12 and velocities of up to 1.5
+			v_old = t_haloes[i_tree].vel
+			x_old = t_haloes[i_tree].pos / (1+z) / HUBBLE
+			i_tree=t_haloes[i_tree].FirstProgenitor
+
+			; fix for central halos and check for end with snap
 			IF(i_tree NE t_haloes[i_tree].FIRSTHALOINFOFGROUP) THEN BEGIN
-         		print,'Switching to main of FoF !'
+				fp_switch = 1
 				i_tree = t_haloes[i_tree].FIRSTHALOINFOFGROUP
-				x_new=t_haloes[i_tree].pos
-				r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
-				IF(r_dif GT 200.) THEN BEGIN
-					print,'Tree is broken even after switch:	Offset > ',r_dif,':	TERMINATE!'
+				snap_new = t_haloes[i_tree].SnapNum
+				IF(snap_new GT snap_old) THEN BEGIN 
+					print,'Snap Jump to ', snap_new, '	from ', snap_old
 					BREAK
 				ENDIF
 			ENDIF ELSE BEGIN
-				print,'Tree is broken. Not a switch case.	Offset > ',r_dif,':	TERMINATE!'
-				BREAK
+				fp_switch = 0
 			ENDELSE
-		ENDIF
+			;x_pred = x_old + 0.26*v_old			; 0.3 for maximum time-step
+			snap_fp		= t_haloes[i_tree].SnapNum
+			file_nr_fp	= t_haloes[i_tree].FileNr
+			i_sub_fp	= t_haloes[i_tree].SubhaloIndex
+			str1		= string(snap_fp,form='(i03)')
+			str2		= STRTRIM(STRING(file_nr_fp),2)
+			sub_name	= '/HydroSims/Magneticum/Box4/uhr_test/groups_'+str1+'/sub_'+str1+'.'+str2	
+			readnew,sub_name,h,'HEAD'
+			z			= h.redshift
+			HUBBLE		= h.hubbleparam
+			x_new	= t_haloes[i_tree].pos / (1+z) / HUBBLE
+			v_new	= t_haloes[i_tree].vel
+			;r_pred=sqrt((x_pred[0]-x_old[0])^2+(x_pred[1]-x_old[1])^2+(x_old[2]-x_old[2])^2)
+			r_dif=sqrt((x_old[0]-x_new[0])^2+(x_old[1]-x_new[1])^2+(x_old[2]-x_new[2])^2)
+			IF ( r_dif-(0.3*NORM(v_old)) GT 0. ) AND ( r_dif-(0.3*NORM(v_new)) GT 0. ) AND (r_dif LT 40000.) THEN BEGIN 
+				exceed = 1
+			ENDIF ELSE BEGIN
+				exceed = 0
+			ENDELSE
+			IF (r_dif GT 40000.) THEN BEGIN 
+				cross = 1
+			ENDIF ELSE BEGIN
+				cross = 0
+			ENDELSE
+			IF (r_dif GT 200.) AND (r_dif LT 40000.) THEN BEGIN 
+				jump = 1
+				;BREAK
+			ENDIF ELSE BEGIN
+				jump = 0
+			ENDELSE
 
-	ENDWHILE                                                                                                 		
-
+		ENDWHILE
+		FREE_LUN, lun
+		CLOSE, lun
+	ENDELSE
 	; next part is just if one wants to trace beyond snap 36 so in the next file
 	; --------------------------------------------------------------------------
 
@@ -209,8 +245,6 @@ FOR j=loop_start, loop_stop,-1 DO BEGIN  ; 99, 199, 299, 399, 499, 999, 1499, N_
 		
 ;	ENDIF
 
-	FREE_LUN, lun
-	CLOSE, lun
 
 ENDFOR                                                                                                                 
         

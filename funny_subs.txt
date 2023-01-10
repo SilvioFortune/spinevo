@@ -1,2 +1,12 @@
 SNAP    felixID     lastID      Comment
 106     515         15459       @border?
+40      100                     shells?
+128     4                       disk!
+92                  18369       treemass strange
+92                  21029       treemass strange
+92                  22253       treemass strange
+92                  14587       multimerger and SF boost
+53-58               14635       small DM halo? cropped a lot of the disk
+36                  14679       slow arms??
+120                 14755       sudden j drop
+52                  16508       major merger b-value drop and decline. SF peak and the drop
